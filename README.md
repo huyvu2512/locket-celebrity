@@ -11,3 +11,4 @@
 3.  **Truy cập Locket:**
     * Truy cập [Locketbinhake](https://locket.binhake.dev/), bảng điều khiển sẽ xuất hiện ở góc dưới bên phải.
     * Nhấn "Bắt đầu Auto Celeb" để script tự động chuyển về trang Celeb và chạy.
+      
