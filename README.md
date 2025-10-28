@@ -6,7 +6,7 @@
 2. **Cài đặt script YouTube Customizer**:
    - Nhấn vào nút dưới đây để tự động cài đặt script vào Tampermonkey:
    
-     [![Cài đặt Script](https://img.shields.io/badge/Cài%20đặt-Script-blue?style=for-the-badge)](https://raw.githubusercontent.com/huyvu2512/locket-auto-celeb/main/tampermonkey.user.js)
+     [![Cài đặt Script](https://img.shields.io/badge/Cài%20đặt-Script-blue?style=for-the-badge)](https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js)
 
 3.  **Truy cập Locket:**
     * Truy cập [Locket](https://locket.binhake.dev/), bảng điều khiển sẽ xuất hiện ở góc dưới bên phải.
