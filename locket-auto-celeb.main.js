@@ -340,7 +340,7 @@
             currentTimerConfig.minutes += 5;
             log(`Tăng thời gian hẹn giờ lên: ${currentTimerConfig.minutes} phút.`, 'timer');
             saveTimerConfig();
-            updateTimerConfig();
+            updateTimerUI();
         });
     
         minusBtn.addEventListener('click', (event) => {
@@ -455,7 +455,7 @@
      * Sửa lỗi: Chờ element load trước khi xử lý, tránh bị "treo" do web load chậm
      * SỬA LỖI (VPS): Tăng timeout lên 3 phút (180000ms)
      */
-    function waitForElementById(elementId, timeout = 180000, interval = 500) { // <-- ĐÃ SỬA: 180000
+    function waitForElementById(elementId, timeout = 180000, interval = 500) { // <-- Mặc định chờ 3 phút
         return new Promise((resolve, reject) => {
             let elapsedTime = 0;
             const check = () => {
@@ -501,18 +501,16 @@
             const elementId = currentId + '_parentElement';
             log(`Đang chờ container của celeb: ${currentId}...`, 'info');
             // SỬA LỖI (VPS): Chờ element xuất hiện, tối đa 3 phút
-            parentElement = await waitForElementById(elementId, 180000, 500); // <-- ĐÃ SỬA: 180000
+            parentElement = await waitForElementById(elementId, 180000, 500); // <-- Chờ 3 phút
         } catch (error) {
             // Lỗi này xảy ra khi web load quá chậm, không tìm thấy celeb
-            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 3 phút chờ). Bỏ qua.`, 'error'); // <-- ĐÃ SỬA: 3 phút
+            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 3 phút chờ). Bỏ qua.`, 'error'); // <-- Sửa log
             // Tự động gọi celeb tiếp theo
             await processNextCeleb(celebIds, totalCount); 
             return;
         }
         // ***** KẾT THÚC SỬA LỖI (CHỜ ELEMENT) *****
 
-        // Code gốc (đã được sửa):
-        // const parentElement = document.getElementById(currentId + '_parentElement'); // <- Đã chuyển lên trên
         if (!parentElement) {
             // Check này vẫn giữ lại, phòng trường hợp lỗi không xác định
             log(`Không tìm thấy container cho celeb ID: ${currentId}. Bỏ qua.`, 'error');
@@ -607,7 +605,7 @@
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
         // Log phiên bản
-        log('Userscript đã được kích hoạt (v1.0 - Sửa lỗi chờ 3 phút).', 'success'); // <-- ĐÃ SỬA: 3 phút
+        log('Userscript đã được kích hoạt (v1.0 - Sửa lỗi chờ 3 phút + check 20s).', 'success'); // <-- ĐÃ SỬA
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
         try {
@@ -645,34 +643,63 @@
         if (window.location.href === CONFIG.TARGET_PAGE) {
             log('Đang ở trang celebrity.html. Kích hoạt logic auto-run và UI hỗ trợ.');
             
-            scrollToCelebSection();
-            closeNotificationPopup();
-
-            const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
-            const needsTimerRestart = localStorage.getItem(CONFIG.TIMER_RESTART_KEY) === 'true';
-
-            updateControlButtonState(currentState);
-
-            if (needsTimerRestart) {
-                log('PHÁT HIỆN CỜ RESTART. Tự động bắt đầu sau 2 giây...', 'timer');
-                localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
-                setTimeout(startProcess, 2000);
-            }
-            else if (currentState.isRunning && !currentState.finished && currentState.celebIds && currentState.celebIds.length > 0) {
-                log('Phát hiện phiên làm việc chưa hoàn tất. Tự động tiếp tục...', 'info');
-                if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
-                    startReloadTimer(currentTimerConfig.minutes);
+            // ***** BẮT ĐẦU SỬA LỖI (Kiểm tra 20s) *****
+            // Hàm async này sẽ bao bọc logic chính
+            async function runCelebLogic() {
+                try {
+                    log('Kiểm tra 20s: Đang chờ container (usernameSearch) tải...', 'timer');
+                    // Chờ container chính (usernameSearch) trong 20 giây
+                    await waitForElementById('usernameSearch', 20000); // Chờ 20 giây
+                    log('Kiểm tra 20s: Container đã tải. Tiếp tục script.', 'success');
+                    
+                    // --- Bắt đầu logic chính (code này đã có) ---
+                    scrollToCelebSection(); // Giờ nó đã an toàn để gọi
+                    closeNotificationPopup();
+        
+                    const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+                    const needsTimerRestart = localStorage.getItem(CONFIG.TIMER_RESTART_KEY) === 'true';
+        
+                    updateControlButtonState(currentState);
+        
+                    if (needsTimerRestart) {
+                        log('PHÁT HIỆN CỜ RESTART. Tự động bắt đầu sau 2 giây...', 'timer');
+                        localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
+                        setTimeout(startProcess, 2000);
+                    }
+                    else if (currentState.isRunning && !currentState.finished && currentState.celebIds && currentState.celebIds.length > 0) {
+                        log('Phát hiện phiên làm việc chưa hoàn tất. Tự động tiếp tục...', 'info');
+                        if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
+                            startReloadTimer(currentTimerConfig.minutes);
+                        }
+                        processNextCeleb(currentState.celebIds, currentState.totalCount);
+                    }
+                    else if (currentState.isRunning && currentState.finished) {
+                        log('Quá trình đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer (nếu bật).', 'success');
+                        if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
+                            startReloadTimer(currentTimerConfig.minutes);
+                        }
+                    }
+                    // --- Kết thúc logic chính ---
+        
+                } catch (error) {
+                    // HẾT 20s, container (usernameSearch) không xuất hiện
+                    log('Kiểm tra 20s: HẾT GIỜ. Container (usernameSearch) không tải. Đang reload trang...', 'error');
+                    
+                    const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
+                    if (celebToolsLink) {
+                        log('Đang click "Celebrity Tools" để tải lại.');
+                        celebToolsLink.click(); // Click nút "Celebrity Tools" như yêu cầu
+                    } else {
+                        log('LỖI: Không tìm thấy "Celebrity Tools". Dùng location.reload().', 'error');
+                        location.reload(); // Dự phòng nếu không tìm thấy nút
+                    }
                 }
-                // ***** SỬA LỖI: Bỏ setTimeout 2 giây, để hàm chờ mới xử lý
-                // Script sẽ chờ element thay vì chờ 2s cố định
-                processNextCeleb(currentState.celebIds, currentState.totalCount);
             }
-            else if (currentState.isRunning && currentState.finished) {
-                log('Quá trình đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer (nếu bật).', 'success');
-                if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
-                    startReloadTimer(currentTimerConfig.minutes);
-                }
-            }
+
+            // Gọi hàm async mới
+            runCelebLogic();
+            // ***** KẾT THÚC SỬA LỖI (Kiểm tra 20s) *****
+
         } else {
             log('Đang ở trang khác. Chỉ hiển thị UI.');
             // Hiển thị trạng thái cuối cùng đã lưu
