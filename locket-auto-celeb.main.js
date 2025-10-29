@@ -448,6 +448,35 @@
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
+    
+    // ***** BẮT ĐẦU SỬA LỖI (HÀM MỚI) *****
+    /**
+     * HÀM HỖ TRỢ: Chờ một element (bằng ID) xuất hiện
+     * Sửa lỗi: Chờ element load trước khi xử lý, tránh bị "treo" do web load chậm
+     * SỬA LỖI (VPS): Tăng timeout lên 30 giây
+     */
+    function waitForElementById(elementId, timeout = 30000, interval = 500) { // <-- ĐÃ SỬA: 30000
+        return new Promise((resolve, reject) => {
+            let elapsedTime = 0;
+            const check = () => {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    resolve(element);
+                } else {
+                    elapsedTime += interval;
+                    if (elapsedTime >= timeout) {
+                        log(`Hết thời gian chờ element ID: ${elementId}`, 'error');
+                        reject(new Error(`Timeout waiting for element ID: ${elementId}`));
+                    } else {
+                        setTimeout(check, interval);
+                    }
+                }
+            };
+            check();
+        });
+    }
+    // ***** KẾT THÚC SỬA LỖI (HÀM MỚI) *****
+    
 
     async function processNextCeleb(celebIds, totalCount) {
         const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
@@ -461,33 +490,59 @@
             updateControlButtonState({ isRunning: true });
             return;
         }
+        
         const currentId = celebIds.shift();
+        // Lưu state ngay lập tức (quan trọng)
         sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [...celebIds], totalCount: totalCount }));
-        const parentElement = document.getElementById(currentId + '_parentElement');
+
+        // ***** BẮT ĐẦU SỬA LỖI (CHỜ ELEMENT) *****
+        let parentElement;
+        try {
+            const elementId = currentId + '_parentElement';
+            log(`Đang chờ container của celeb: ${currentId}...`, 'info');
+            // SỬA LỖI (VPS): Chờ element xuất hiện, tối đa 30 giây
+            parentElement = await waitForElementById(elementId, 30000, 500); // <-- ĐÃ SỬA: 30000
+        } catch (error) {
+            // Lỗi này xảy ra khi web load quá chậm, không tìm thấy celeb
+            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 30s chờ). Bỏ qua.`, 'error'); // <-- ĐÃ SỬA: 30s
+            // Tự động gọi celeb tiếp theo
+            await processNextCeleb(celebIds, totalCount); 
+            return;
+        }
+        // ***** KẾT THÚC SỬA LỖI (CHỜ ELEMENT) *****
+
+        // Code gốc (đã được sửa):
+        // const parentElement = document.getElementById(currentId + '_parentElement'); // <- Đã chuyển lên trên
         if (!parentElement) {
+            // Check này vẫn giữ lại, phòng trường hợp lỗi không xác định
             log(`Không tìm thấy container cho celeb ID: ${currentId}. Bỏ qua.`, 'error');
             await processNextCeleb(celebIds, totalCount);
             return;
         }
+        
         const button = parentElement.querySelector('button[data-status="waitlist"]');
         const nameElement = parentElement.closest('.profile')?.querySelector('.profile-name');
         const celebName = nameElement ? nameElement.textContent.trim() : `ID: ${currentId}`;
         const processedCount = totalCount - celebIds.length;
         const countText = `(${processedCount}/${totalCount})`;
+        
         if (!button) {
             log(`${countText} ${celebName} đã được thêm hoặc không có sẵn. Bỏ qua.`, 'info');
             await processNextCeleb(celebIds, totalCount);
             return;
         }
+        
         log(`${countText} Đang xử lý: ${celebName}`);
         showCelebPopup(celebName, countText);
         button.click();
         await sleep(1000);
+        
         const startButton = document.getElementById(currentId + '_startButton');
         if (startButton) {
             log(`Nhấn nút "Bắt đầu" cho ${celebName}`);
             startButton.click();
-            await sleep(2000);
+            await sleep(2000); // Chờ trang load
+            
             if (celebIds.length === 0) {
                 log(`Đã xử lý celeb cuối cùng: ${celebName}. Script đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer.`, 'success');
                 sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [], totalCount: totalCount, finished: true }));
@@ -497,7 +552,7 @@
                 log('Quay trở lại danh sách celeb để xử lý người tiếp theo...');
                 const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
                 if (celebToolsLink) {
-                    celebToolsLink.click();
+                    celebToolsLink.click(); // Click để điều hướng, script sẽ tự chạy lại ở trang mới
                 } else {
                     log('LỖI: Không tìm thấy link "Celebrity Tools". Dừng script.', 'error');
                     stopProcess(false);
@@ -551,9 +606,8 @@
 
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
-        // ===== ĐÃ SỬA DÒNG NÀY =====
-        log('Userscript đã được kích hoạt (v1.0).', 'success');
-        // ===========================
+        // Log phiên bản
+        log('Userscript đã được kích hoạt (v1.0 - Sửa lỗi chờ 30s).', 'success'); // <-- ĐÃ SỬA: 30s
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
         try {
@@ -605,11 +659,13 @@
                 setTimeout(startProcess, 2000);
             }
             else if (currentState.isRunning && !currentState.finished && currentState.celebIds && currentState.celebIds.length > 0) {
-                log('Phát hiện phiên làm việc chưa hoàn tất. Tự động tiếp tục sau 2 giây...', 'info');
+                log('Phát hiện phiên làm việc chưa hoàn tất. Tự động tiếp tục...', 'info');
                 if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
                     startReloadTimer(currentTimerConfig.minutes);
                 }
-                setTimeout(() => processNextCeleb(currentState.celebIds, currentState.totalCount), 2000);
+                // ***** SỬA LỖI: Bỏ setTimeout 2 giây, để hàm chờ mới xử lý
+                // Script sẽ chờ element thay vì chờ 2s cố định
+                processNextCeleb(currentState.celebIds, currentState.totalCount);
             }
             else if (currentState.isRunning && currentState.finished) {
                 log('Quá trình đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer (nếu bật).', 'success');
@@ -619,7 +675,7 @@
             }
         } else {
             log('Đang ở trang khác. Chỉ hiển thị UI.');
-            // Hiển thị trạng thái cuối cùng đã lưu (quan trọng cho logic v1.2)
+            // Hiển thị trạng thái cuối cùng đã lưu
             const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
             updateControlButtonState(currentState.isRunning ? currentState : { isRunning: false });
         }
