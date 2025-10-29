@@ -551,7 +551,9 @@
 
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
-        log('Userscript đã được kích hoạt (v1.2 - Sửa lỗi Timer).', 'success');
+        // ===== ĐÃ SỬA DÒNG NÀY =====
+        log('Userscript đã được kích hoạt (v1.0).', 'success');
+        // ===========================
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
         try {
