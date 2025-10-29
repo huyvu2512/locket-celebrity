@@ -9,4 +9,7 @@
 // @run-at       document-idle
 // @grant        none
 // @icon         https://github.com/user-attachments/assets/a5738cf1-763a-4a4b-bf07-c9d1d335910a
+//
+// @updateURL    https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js
+// @downloadURL  https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js
 // ==/UserScript==
