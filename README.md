@@ -16,7 +16,7 @@
 1. **Nếu đã cài đặt nhưng vào Web công cụ không hiện nghĩa là bạn chưa cấp hết quyền cho Tampermonkey**:
   
     * Sao chép và dán vào trình duyệt: **chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo**
-    * Kéo xuống và tìm **Allow User Scripts** hay **Cho phép tập lệnh của người dùng** rồi cấp quyền cho nó là được
+    * Kéo xuống và tìm **Allow User Scripts** hay **Cho phép tập lệnh của người dùng** và **Cho phép ở chế độ ẩn danh** rồi cấp quyền cho nó là được
 
 
 2. **Trường hợp treo bằng VPS không phải Sever VN**:
