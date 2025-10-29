@@ -17,3 +17,8 @@
   
     * Sao chép và dán vào trình duyệt: **chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo**
     * Kéo xuống và tìm **Allow User Scripts** hay **Cho phép tập lệnh của người dùng** rồi cấp quyền cho nó là được
+
+
+2. **Trường hợp treo bằng VPS không phải Sever VN**:
+
+    * Ai mà treo bằng VPS không phải Sever VN thì nên add thêm extension [Urban VPN Proxy](https://chromewebstore.google.com/detail/urban-vpn-proxy/eppiocemhmnlbhjplcgkofciiegomcon?hl=vi) sau đó bật VPN Việt Nam lên để tránh bị treo web và xác minh con người nhé.
