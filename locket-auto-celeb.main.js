@@ -1,251 +1,627 @@
-// ==Auto Locket Celeb - Core (v1.1)==
-// Features: Smart Resume (localStorage), Auto Update, Retry, Speed selector, Timer, Progress, UI
 (function() {
     'use strict';
-
-    // ---------- CONFIG ----------
+    
+    // ***** BẮT ĐẦU CODE ĐÃ SỬA LỖI *****
+    
     const CONFIG = {
         STORAGE_KEY: 'autoCelebState',
-        RESUME_KEY: 'autoCelebResume_v1',
-        TIMER_CONFIG_KEY: 'autoCelebTimerConfig_v1',
-        TIMER_RESTART_KEY: 'autoCelebTimerRestart_v1',
-        TIMER_END_TIME_KEY: 'autoCelebTimerEndTime_v1',
-        TARGET_PAGE: 'https://locket.binhake.dev/celebrity.html',
-        SITE_HOST: 'https://locket.binhake.dev',
-        VERSION: '1.1',
-        VERSION_URL: 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/version.json' // ✅ updated to match your repo
+        TIMER_CONFIG_KEY: 'autoCelebTimerConfig_v2.9',
+        TIMER_RESTART_KEY: 'autoCelebTimerRestart',
+        TIMER_END_TIME_KEY: 'autoCelebTimerEndTime', // Fix đếm ngược khi reload
+        TARGET_PAGE: 'https://locket.binhake.dev/celebrity.html'
     };
 
-    // ---------- STATE ----------
     let activeTimerId = null;
     let currentTimerConfig = { enabled: false, minutes: 60 };
-    let currentSpeedDelay = 2000; // default 2s
-    const MAX_RETRIES = 3;
 
-    // ---------- UTIL ----------
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-    const lget = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-    const lset = (k, v) => localStorage.setItem(k, JSON.stringify(v));
-    const lrm = k => localStorage.removeItem(k);
-
-    function log(msg, type = 'info') {
-        const prefix = '[Auto Locket Celeb]';
-        if (type === 'error') console.error(prefix, msg);
-        else if (type === 'success') console.info(prefix, msg);
-        else console.log(prefix, msg);
-        const box = document.getElementById('autoCelebLog');
-        if (box) box.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+    // --- UI & Logging ---
+    function log(message, type = 'log') {
+        const styles = { log: 'color: inherit;', info: 'color: #3b82f6;', success: 'color: #22c55e;', error: 'color: #ef4444; font-weight: bold;', rocket: '', timer: 'color: #f59e0b;' };
+        const prefix = type === 'rocket' ? '🚀' : (type === 'success' ? '✅' : (type === 'info' ? 'ℹ️' : (type === 'timer' ? '⏱️' : '➡️')));
+        console.log(`%c[Auto Locket Celeb]%c ${prefix} ${message}`, 'color: #8b5cf6; font-weight: bold;', styles[type] || styles.log);
     }
 
-    // ---------- STYLE & UI ----------
-    function injectStyles() {
-        if (document.getElementById('autoCelebStyles')) return;
-        const s = document.createElement('style');
-        s.id = 'autoCelebStyles';
-        s.textContent = `
-            #auto-celeb-main-container { position: fixed; bottom: 18px; right: 18px; z-index:99999; width: 240px; font-family: Inter, Roboto, sans-serif; }
-            #auto-celeb-control-button { width:100%; padding:10px 12px; border-radius:12px; border:none; color:#fff; font-weight:700; cursor:pointer; background:linear-gradient(135deg,#16a34a,#15803d); box-shadow:0 8px 30px rgba(16,185,129,0.15); }
-            #auto-celeb-timer-ui { margin-top:8px; padding:10px; border-radius:12px; background:rgba(30,30,30,0.5); color:#fff; text-align:center; user-select:none; }
-            #speed-selector { width:100%; padding:6px; border-radius:8px; border:none; font-weight:600; margin-top:8px; }
-            #autoCelebLog { max-height:160px; overflow:auto; font-size:12px; margin-top:8px; background:rgba(0,0,0,0.4); padding:6px; border-radius:8px; color:#fff; }
-            .small-btn { padding:6px 8px; border-radius:8px; border:none; cursor:pointer; }
-            .celeb-popup-item { position: fixed; top: 80px; right: 25px; z-index:100000; background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.15); color:#111; font-weight:600; }
-            #auto-progress-bar { position:fixed; bottom:0; left:0; height:6px; background:#22c55e; transition:width .3s; z-index:99998; width:0%; }
+    /**
+     * HIỂN THỊ POPUP THÔNG BÁO MỚI KHI CÓ CELEB
+     */
+    function showCelebPopup(celebName, countText) {
+        let container = document.getElementById('auto-celeb-popup-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'auto-celeb-popup-container';
+            document.body.appendChild(container);
+        }
+
+        const popup = document.createElement('div');
+        popup.className = 'celeb-popup-item';
+        popup.innerHTML = `
+            <span class="celeb-count">${countText}</span>
+            Đang xử lý: <span class="celeb-name">${celebName}</span>
         `;
-        document.head.appendChild(s);
+        container.prepend(popup);
+
+        setTimeout(() => {
+            popup.remove();
+            if (container.children.length === 0) {
+                container.remove();
+            }
+        }, 4000);
     }
 
-    function createUI() {
-        if (document.getElementById('auto-celeb-main-container')) return;
+
+    /**
+     * Tiêm CSS (PHONG CÁCH MỚI - GLASS UI)
+     */
+    function injectNewStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* ---------------------------
+                PHONG CÁCH MỚI - GLASS UI
+            --------------------------- */
+
+            #auto-celeb-main-container {
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                z-index: 9999;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                width: 210px;
+                font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
+            }
+            #auto-celeb-control-button {
+                width: 100%;
+                padding: 12px 14px;
+                border-radius: 14px;
+                border: none;
+                color: white;
+                font-weight: 600;
+                font-size: 16px;
+                cursor: pointer;
+                background: linear-gradient(135deg, #22c55e, #16a34a);
+                box-shadow: 0 6px 20px rgba(34,197,94,0.4);
+                transition: all 0.25s ease;
+                backdrop-filter: blur(10px);
+            }
+            #auto-celeb-control-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(34,197,94,0.55);
+                filter: brightness(1.1);
+            }
+            #auto-celeb-timer-ui {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 10px 12px;
+                border-radius: 14px;
+                color: white;
+                font-weight: 600;
+                text-align: center;
+                backdrop-filter: blur(15px);
+                background: rgba(30,30,30,0.45);
+                border: 1px solid rgba(255,255,255,0.15);
+                box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+                user-select: none;
+                transition: all 0.3s ease;
+                cursor: pointer;
+            }
+            #auto-celeb-timer-ui:hover:not(.timer-counting) {
+                transform: scale(1.03);
+            }
+            #timer-status-text {
+                font-size: 18px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                text-shadow: 0 0 4px rgba(255,255,255,0.25);
+                margin-bottom: 4px;
+            }
+            #timer-controls-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 100%;
+            }
+            #auto-celeb-timer-ui.timer-disabled {
+                background: linear-gradient(145deg, #dc2626, #b91c1c);
+                box-shadow: 0 4px 15px rgba(239,68,68,0.4);
+            }
+            #auto-celeb-timer-ui.timer-enabled {
+                background: linear-gradient(145deg, #16a34a, #15803d);
+                box-shadow: 0 4px 15px rgba(34,197,94,0.4);
+            }
+            #auto-celeb-timer-ui.timer-counting {
+                background: linear-gradient(145deg, #0ea5e9, #0284c7);
+                cursor: default;
+            }
+            .timer-btn {
+                font-size: 30px;
+                font-weight: 700;
+                padding: 0 10px;
+                cursor: pointer;
+                user-select: none;
+                transition: transform 0.15s ease, opacity 0.15s ease;
+            }
+            .timer-btn:hover {
+                opacity: 0.75;
+                transform: scale(1.15);
+            }
+            #timer-display {
+                flex-grow: 1;
+                text-align: center;
+                font-family: 'JetBrains Mono', 'Courier New', monospace;
+                font-size: 26px;
+                letter-spacing: 1px;
+            }
+            #auto-celeb-popup-container {
+                position: fixed;
+                top: 80px;
+                right: 25px;
+                z-index: 10000;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 12px;
+                pointer-events: none;
+            }
+            .celeb-popup-item {
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(10px);
+                color: #1f2937;
+                padding: 12px 18px;
+                border-radius: 12px;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                border: 1px solid rgba(250,204,21,0.6);
+                font-size: 15px;
+                animation: slideInFadeIn 0.5s forwards, fadeOut 0.5s 3.5s forwards;
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            .celeb-popup-item .celeb-name {
+                font-weight: 700;
+                color: #92400e;
+            }
+            .celeb-popup-item .celeb-count {
+                font-size: 13px;
+                opacity: 0.75;
+                margin-right: 8px;
+            }
+            @keyframes slideInFadeIn {
+                to { opacity: 1; transform: translateX(0); }
+            }
+            @keyframes fadeOut {
+                from { opacity: 1; transform: translateX(0); }
+                to { opacity: 0; transform: translateX(50%); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /**
+     * Tạo Bảng điều khiển CHÍNH
+     */
+    function createMainControlUI() {
         const container = document.createElement('div');
         container.id = 'auto-celeb-main-container';
-
-        container.innerHTML = `
-            <button id="auto-celeb-control-button">Bắt đầu Auto Celeb</button>
-            <div id="auto-celeb-timer-ui">
-                <div id="timer-status-text">Timer: <span id="timer-state-text">TẮT</span></div>
-                <div style="display:flex;gap:6px;justify-content:center;margin-top:6px;">
-                    <button id="timer-decr" class="small-btn">-5m</button>
-                    <button id="timer-toggle" class="small-btn">Bật/Tắt</button>
-                    <button id="timer-incr" class="small-btn">+5m</button>
-                </div>
-                <select id="speed-selector">
-                    <option value="3000">🐢 Chậm (3s)</option>
-                    <option value="2000" selected>⚙️ Trung bình (2s)</option>
-                    <option value="1000">⚡ Nhanh (1s)</option>
-                </select>
-                <div style="display:flex;gap:8px;margin-top:8px;">
-                    <button id="btn-stop" class="small-btn" style="background:#ef4444;color:#fff;">Dừng</button>
-                    <button id="btn-clear" class="small-btn">Xóa Resume</button>
-                </div>
-                <div id="autoCelebLog"></div>
+        const controlButton = document.createElement('button');
+        controlButton.id = 'auto-celeb-control-button';
+        const timerUI = document.createElement('div');
+        timerUI.id = 'auto-celeb-timer-ui';
+        timerUI.innerHTML = `
+            <div id="timer-status-text"></div>
+            <div id="timer-controls-row">
+                <span id="timer-minus-btn" class="timer-btn">-</span>
+                <span id="timer-display">00:00</span>
+                <span id="timer-plus-btn" class="timer-btn">+</span>
             </div>
         `;
+        container.appendChild(controlButton);
+        container.appendChild(timerUI);
         document.body.appendChild(container);
-        const bar = document.createElement('div');
-        bar.id = 'auto-progress-bar';
-        document.body.appendChild(bar);
     }
 
-    // ---------- SMART RESUME ----------
-    function saveProgress(ids, total, index) {
-        lset(CONFIG.RESUME_KEY, { celebIds: ids, totalCount: total, currentIndex: index, timestamp: Date.now(), isRunning: true });
+    /**
+     * Cập nhật Nút Bắt đầu/Dừng
+     */
+    function updateControlButtonState(state) {
+        const button = document.getElementById('auto-celeb-control-button');
+        if (!button) return; // Thêm kiểm tra
+        if (state.isRunning) {
+            button.textContent = 'Dừng Auto Celeb';
+            button.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            button.style.boxShadow = '0 6px 20px rgba(239,68,68,0.4)';
+        } else {
+            button.textContent = 'Bắt đầu Auto Celeb';
+            button.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+            button.style.boxShadow = '0 6px 20px rgba(34,197,94,0.4)';
+        }
     }
-    function loadProgress() { return lget(CONFIG.RESUME_KEY); }
-    function clearProgress() { lrm(CONFIG.RESUME_KEY); }
 
-    async function checkAndResume(autoStartSec = 5) {
-        const saved = loadProgress();
-        if (!saved?.isRunning) return;
-        const remaining = saved.celebIds.slice(saved.currentIndex || 0);
-        log(`🧠 Phát hiện tiến trình cũ: còn ${remaining.length}/${saved.totalCount}`);
-        let answered = false;
-        setTimeout(() => {
-            if (!answered) {
-                log(`Tự resume sau ${autoStartSec}s...`);
-                processNextCeleb(saved.celebIds, saved.totalCount, saved.currentIndex);
+    /**
+     * Cập nhật Nút Hẹn giờ
+     */
+    function updateTimerUI(mode, value) {
+        const timerUI = document.getElementById('auto-celeb-timer-ui');
+        const display = document.getElementById('timer-display');
+        const plusBtn = document.getElementById('timer-plus-btn');
+        const minusBtn = document.getElementById('timer-minus-btn');
+        const statusText = document.getElementById('timer-status-text');
+        if (!timerUI || !display || !plusBtn || !minusBtn || !statusText) return;
+        timerUI.classList.remove('timer-disabled', 'timer-enabled', 'timer-counting');
+        if (mode === 'counting') {
+            timerUI.classList.add('timer-counting');
+            statusText.style.display = 'block';
+            statusText.textContent = "ĐANG ĐẾM...";
+            plusBtn.style.display = 'none';
+            minusBtn.style.display = 'none';
+            display.textContent = formatTime(value);
+            display.style.fontSize = '30px';
+            display.style.fontFamily = "'JetBrains Mono', 'Courier New', monospace";
+        } else {
+            statusText.style.display = 'block';
+            plusBtn.style.display = 'block';
+            minusBtn.style.display = 'block';
+            display.style.fontSize = '26px';
+            display.textContent = `${currentTimerConfig.minutes.toString().padStart(2, '0')}:00`;
+            if (currentTimerConfig.enabled) {
+                timerUI.classList.add('timer-enabled'); // Xanh
+                statusText.textContent = 'BẬT';
+            } else {
+                timerUI.classList.add('timer-disabled'); // Đỏ
+                statusText.textContent = 'TẮT';
             }
-        }, autoStartSec * 1000);
-
-        try {
-            answered = confirm(`Tiếp tục từ celeb #${saved.currentIndex + 1}? (tự chạy sau ${autoStartSec}s nếu không bấm)`);
-            if (answered) processNextCeleb(saved.celebIds, saved.totalCount, saved.currentIndex);
-            else clearProgress();
-        } catch {}
+        }
     }
 
-    // ---------- AUTO UPDATE ----------
-    async function checkForUpdate() {
-        try {
-            const res = await fetch(CONFIG.VERSION_URL + '?t=' + Date.now());
-            const data = await res.json();
-            if (data.version && data.version !== CONFIG.VERSION) showUpdatePopup(data);
-            else log(`✅ Phiên bản ${CONFIG.VERSION} là mới nhất.`);
-        } catch (e) { log('Không thể kiểm tra cập nhật: ' + e.message, 'error'); }
-    }
-
-    function showUpdatePopup(d) {
-        const el = document.createElement('div');
-        el.className = 'celeb-popup-item';
-        el.innerHTML = `
-            <b>🚀 Bản mới v${d.version}</b><br>${d.changelog || 'Cải tiến mới.'}
-            <div style="margin-top:8px">
-                <button id="updateNowBtn" class="small-btn" style="background:#22c55e;color:#fff;">Cập nhật ngay</button>
-            </div>
-        `;
-        document.body.appendChild(el);
-        document.getElementById('updateNowBtn').onclick = () => window.open(d.download_url, '_blank');
-        setTimeout(() => el.remove(), 12000);
-    }
-
-    // ---------- TIMER ----------
+    // --- Chức năng Hẹn giờ Tự Reset ---
+    
+    // <-- HÀM loadTimerConfig ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.2)
     function loadTimerConfig() {
-        const c = lget(CONFIG.TIMER_CONFIG_KEY) || {};
-        currentTimerConfig = { enabled: !!c.enabled, minutes: c.minutes || 60 };
-        updateTimerUI();
+        const configStr = localStorage.getItem(CONFIG.TIMER_CONFIG_KEY);
+        if (configStr) {
+            const savedConfig = JSON.parse(configStr);
+            currentTimerConfig.minutes = savedConfig.minutes || 60;
+            currentTimerConfig.enabled = savedConfig.enabled || false; // <-- ĐÃ SỬA LỖI
+        } else {
+            // Nếu chưa có gì được lưu, dùng giá trị mặc định
+            currentTimerConfig.minutes = 60;
+            currentTimerConfig.enabled = false;
+        }
+        
+        // Cập nhật log để hiển thị đúng trạng thái BẬT/TẮT
+        log(`Đã tải Cài đặt Hẹn giờ (${currentTimerConfig.enabled ? 'BẬT' : 'TẮT'}, ${currentTimerConfig.minutes} phút).`, 'info');
+        
+        // Không gọi updateTimerUI() ngay lập tức ở đây
+        // Vì logic chính sẽ gọi updateTimerUI('counting', ...) nếu cần
+        // Chỉ gọi khi không có timer đang chạy
+        const activeTimerEndTime = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
+        if (!activeTimerEndTime) {
+             updateTimerUI();
+        }
     }
-    function saveTimerConfig() { lset(CONFIG.TIMER_CONFIG_KEY, currentTimerConfig); }
-    function updateTimerUI(mode, val) {
-        const el = document.getElementById('timer-state-text');
-        if (!el) return;
-        el.textContent = currentTimerConfig.enabled ? `BẬT (${currentTimerConfig.minutes}m)` : 'TẮT';
-        if (mode === 'counting') el.textContent = `ĐẾM ${Math.floor(val/60)}:${String(val%60).padStart(2,'0')}`;
+    
+    function saveTimerConfig() {
+        // Chỉ lưu 'minutes' và 'enabled'
+        const configToSave = {
+            minutes: currentTimerConfig.minutes,
+            enabled: currentTimerConfig.enabled
+        };
+        localStorage.setItem(CONFIG.TIMER_CONFIG_KEY, JSON.stringify(configToSave));
     }
-    function startReloadTimer(mins) {
+    
+    function setupTimerControls() {
+        const timerUI = document.getElementById('auto-celeb-timer-ui');
+        const plusBtn = document.getElementById('timer-plus-btn');
+        const minusBtn = document.getElementById('timer-minus-btn');
+        
+        if (!timerUI || !plusBtn || !minusBtn) return; // Thêm kiểm tra
+
+        const toggleTimer = () => {
+            if (activeTimerId) return;
+            currentTimerConfig.enabled = !currentTimerConfig.enabled;
+            log(`Hẹn giờ ${currentTimerConfig.enabled ? 'ĐÃ BẬT' : 'ĐÃ TẮT'}.`, 'timer');
+            saveTimerConfig();
+            updateTimerUI();
+        };
+    
+        timerUI.addEventListener('click', () => {
+            if (activeTimerId) return;
+            if (window.location.href !== CONFIG.TARGET_PAGE) {
+                log('Đang ở trang khác. Chuyển hướng về celebrity.html...');
+                window.location.href = CONFIG.TARGET_PAGE;
+                return;
+            }
+            toggleTimer();
+        });
+    
+        plusBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (activeTimerId) return;
+            currentTimerConfig.minutes += 5;
+            log(`Tăng thời gian hẹn giờ lên: ${currentTimerConfig.minutes} phút.`, 'timer');
+            saveTimerConfig();
+            updateTimerUI();
+        });
+    
+        minusBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (activeTimerId) return;
+            if (currentTimerConfig.minutes > 5) {
+                currentTimerConfig.minutes -= 5;
+                log(`Giảm thời gian hẹn giờ xuống: ${currentTimerConfig.minutes} phút.`, 'timer');
+            } else {
+                 currentTimerConfig.minutes = 5;
+                 log(`Thời gian hẹn giờ tối thiểu là 5 phút.`, 'timer');
+            }
+            saveTimerConfig();
+            updateTimerUI();
+        });
+    }
+
+    function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // --- CÁC HÀM LOGIC CHÍNH (CHỈ CHẠY TRÊN TRANG TARGET) ---
+
+    // <-- HÀM startReloadTimer ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.1)
+    function startReloadTimer(minutes) {
         if (activeTimerId) clearInterval(activeTimerId);
-        const endTime = Date.now() + mins * 60000;
-        sessionStorage.setItem(CONFIG.TIMER_END_TIME_KEY, endTime);
-        activeTimerId = setInterval(() => {
-            const remain = Math.floor((endTime - Date.now())/1000);
-            if (remain <= 0) {
+
+        // 1. Kiểm tra xem có endTime đã lưu từ trước không
+        let endTimeStr = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
+        let endTime;
+
+        if (!endTimeStr) {
+            // 2. Nếu KHÔNG, tạo endTime mới và lưu lại
+            const durationInSeconds = minutes * 60;
+            endTime = Date.now() + durationInSeconds * 1000;
+            sessionStorage.setItem(CONFIG.TIMER_END_TIME_KEY, endTime.toString());
+            log(`Đã BẮT ĐẦU đồng hồ đếm ngược. Reset sau ${minutes} phút.`, 'timer');
+        } else {
+            // 3. Nếu CÓ, dùng lại endTime cũ
+            endTime = parseInt(endTimeStr, 10);
+            const remainingMinutes = ((endTime - Date.now()) / 60000).toFixed(1);
+            log(`Đã TIẾP TỤC đồng hồ đếm ngược (còn ${remainingMinutes} phút).`, 'timer');
+        }
+
+        function updateCountdown() {
+            const now = Date.now();
+            const secondsRemaining = (endTime - now) / 1000;
+
+            if (secondsRemaining <= 0) {
                 clearInterval(activeTimerId);
+                activeTimerId = null;
+                sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY); // Xóa khi hết giờ
+                updateTimerUI('counting', 0);
                 executeTimerReset();
-            } else updateTimerUI('counting', remain);
-        }, 1000);
+            } else {
+                updateTimerUI('counting', secondsRemaining);
+            }
+        }
+        updateCountdown(); // Chạy ngay lần đầu
+        activeTimerId = setInterval(updateCountdown, 1000);
     }
-    function cancelReloadTimer() { if (activeTimerId) clearInterval(activeTimerId); activeTimerId = null; }
+
+    // <-- HÀM cancelReloadTimer ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.1)
+    function cancelReloadTimer() {
+        if (activeTimerId) {
+            clearInterval(activeTimerId);
+            activeTimerId = null;
+            log('Đã hủy đồng hồ đếm ngược.', 'info');
+            updateTimerUI();
+        }
+        // QUAN TRỌNG: Xóa endTime đã lưu khi người dùng chủ động dừng
+        sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
+    }
+
     function executeTimerReset() {
-        log('Timer kết thúc – reload trang...');
+        log('Hẹn giờ kết thúc. ĐANG ĐẶT CỜ RESTART VÀ TẢI LẠI TRANG...', 'timer');
         localStorage.setItem(CONFIG.TIMER_RESTART_KEY, 'true');
+        sessionStorage.removeItem(CONFIG.STORAGE_KEY);
+        // Cũng xóa end time khi reset
+        sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
         location.reload();
     }
 
-    // ---------- MAIN PROCESS ----------
-    async function processNextCeleb(ids, total, index = 0) {
-        if (index >= ids.length) { log('✅ Hoàn tất danh sách.'); clearProgress(); return; }
-        saveProgress(ids, total, index);
-        const id = ids[index];
-        const parent = document.getElementById(id + '_parentElement');
-        const name = parent?.querySelector('.profile-name')?.textContent.trim() || `ID:${id}`;
-        const count = `(${index + 1}/${total})`;
-        log(`${count} Xử lý ${name}`);
-        const btn = parent?.querySelector('button[data-status="waitlist"]');
-        if (!btn) return processNextCeleb(ids, total, index + 1);
-        btn.click();
-        await sleep(currentSpeedDelay);
-        const startBtn = document.getElementById(id + '_startButton');
-        if (startBtn) startBtn.click();
-        updateProgressBar(index + 1, total);
-        await sleep(currentSpeedDelay);
-        processNextCeleb(ids, total, index + 1);
+    function closeNotificationPopup() {
+        setTimeout(() => {
+            const closeButton = document.querySelector('#notificationPopup .close, #notificationPopup [data-dismiss="modal"]');
+            const popup = document.querySelector('#notificationPopup');
+            if (closeButton && popup?.style.display !== 'none') {
+                log('Phát hiện và đóng popup thông báo.', 'info');
+                closeButton.click();
+            }
+        }, 500);
     }
 
-    function updateProgressBar(done, total) {
-        const bar = document.getElementById('auto-progress-bar');
-        if (bar) bar.style.width = `${(done/total)*100}%`;
-    }
-
-    // ---------- CONTROL ----------
-    function startProcess() {
-        const btns = document.querySelectorAll('button[data-status="waitlist"]');
-        if (!btns.length) return log('Không có celeb khả dụng.');
-        const ids = [...btns].map(b => b.parentElement.id.replace('_parentElement', ''));
-        saveProgress(ids, ids.length, 0);
-        updateControlButton(true);
-        if (currentTimerConfig.enabled) startReloadTimer(currentTimerConfig.minutes);
-        processNextCeleb(ids, ids.length, 0);
-    }
-
-    function stopProcess() {
-        cancelReloadTimer();
-        const p = loadProgress(); if (p) p.isRunning = false; lset(CONFIG.RESUME_KEY, p);
-        log('⛔ Dừng tiến trình.');
-        updateControlButton(false);
-    }
-
-    function updateControlButton(running) {
-        const b = document.getElementById('auto-celeb-control-button');
-        if (!b) return;
-        if (running) { b.textContent = 'Đang chạy...'; b.style.background = 'linear-gradient(135deg,#ef4444,#dc2626)'; }
-        else { b.textContent = 'Bắt đầu Auto Celeb'; b.style.background = 'linear-gradient(135deg,#16a34a,#15803d)'; }
-    }
-
-    // ---------- INIT ----------
-    (async function init() {
-        injectStyles();
-        createUI();
-        loadTimerConfig();
-        checkForUpdate();
-
-        document.getElementById('auto-celeb-control-button').onclick = () => {
-            if (window.location.href !== CONFIG.TARGET_PAGE) location.href = CONFIG.TARGET_PAGE;
-            else startProcess();
-        };
-        document.getElementById('btn-stop').onclick = stopProcess;
-        document.getElementById('btn-clear').onclick = () => { clearProgress(); log('Đã xóa resume.'); };
-        document.getElementById('speed-selector').onchange = e => currentSpeedDelay = +e.target.value;
-        document.getElementById('timer-toggle').onclick = () => {
-            currentTimerConfig.enabled = !currentTimerConfig.enabled; saveTimerConfig(); updateTimerUI();
-        };
-        document.getElementById('timer-incr').onclick = () => { currentTimerConfig.minutes += 5; saveTimerConfig(); updateTimerUI(); };
-        document.getElementById('timer-decr').onclick = () => { currentTimerConfig.minutes = Math.max(5, currentTimerConfig.minutes - 5); saveTimerConfig(); updateTimerUI(); };
-
-        const restartFlag = localStorage.getItem(CONFIG.TIMER_RESTART_KEY);
-        if (restartFlag === 'true') {
-            localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
-            log('⚙️ Auto restart sau reload...');
-            setTimeout(startProcess, 2000);
+    function scrollToCelebSection() {
+        const section = document.getElementById('usernameSearch');
+        if (section) {
+            log('Tự động cuộn đến khu vực Auto Celeb.', 'info');
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        if (window.location.href === CONFIG.TARGET_PAGE) await checkAndResume();
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function processNextCeleb(celebIds, totalCount) {
+        const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+        if (!state.isRunning) {
+            log('Quá trình đã được dừng lại.', 'info');
+            return;
+        }
+        if (celebIds.length === 0) {
+            log('Không còn celeb nào trong danh sách chờ để xử lý. Hoàn thành!', 'success');
+            sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ ...state, finished: true }));
+            updateControlButtonState({ isRunning: true });
+            return;
+        }
+        const currentId = celebIds.shift();
+        sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [...celebIds], totalCount: totalCount }));
+        const parentElement = document.getElementById(currentId + '_parentElement');
+        if (!parentElement) {
+            log(`Không tìm thấy container cho celeb ID: ${currentId}. Bỏ qua.`, 'error');
+            await processNextCeleb(celebIds, totalCount);
+            return;
+        }
+        const button = parentElement.querySelector('button[data-status="waitlist"]');
+        const nameElement = parentElement.closest('.profile')?.querySelector('.profile-name');
+        const celebName = nameElement ? nameElement.textContent.trim() : `ID: ${currentId}`;
+        const processedCount = totalCount - celebIds.length;
+        const countText = `(${processedCount}/${totalCount})`;
+        if (!button) {
+            log(`${countText} ${celebName} đã được thêm hoặc không có sẵn. Bỏ qua.`, 'info');
+            await processNextCeleb(celebIds, totalCount);
+            return;
+        }
+        log(`${countText} Đang xử lý: ${celebName}`);
+        showCelebPopup(celebName, countText);
+        button.click();
+        await sleep(1000);
+        const startButton = document.getElementById(currentId + '_startButton');
+        if (startButton) {
+            log(`Nhấn nút "Bắt đầu" cho ${celebName}`);
+            startButton.click();
+            await sleep(2000);
+            if (celebIds.length === 0) {
+                log(`Đã xử lý celeb cuối cùng: ${celebName}. Script đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer.`, 'success');
+                sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [], totalCount: totalCount, finished: true }));
+                updateControlButtonState({ isRunning: true });
+                return;
+            } else {
+                log('Quay trở lại danh sách celeb để xử lý người tiếp theo...');
+                const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
+                if (celebToolsLink) {
+                    celebToolsLink.click();
+                } else {
+                    log('LỖI: Không tìm thấy link "Celebrity Tools". Dừng script.', 'error');
+                    stopProcess(false);
+                }
+            }
+        } else {
+            log(`KHÔNG TÌM THẤY nút "Bắt đầu" cho ${celebName}. Bỏ qua.`, 'error');
+            await processNextCeleb(celebIds, totalCount);
+        }
+    }
+
+    function startProcess() {
+        log('Bắt đầu quá trình tự động thêm celeb...', 'rocket');
+        const availableButtons = document.querySelectorAll('button[data-status="waitlist"]');
+        if (availableButtons.length === 0) {
+            log('Không tìm thấy celeb nào có sẵn để thêm.', 'info');
+             updateControlButtonState({ isRunning: false });
+            return;
+        }
+        const celebIds = Array.from(availableButtons).map(btn => {
+            const parent = btn.parentElement;
+            return (parent && parent.id && parent.id.endsWith('_parentElement')) ? parent.id.replace('_parentElement', '') : null;
+        }).filter(id => id !== null);
+        if (celebIds.length === 0) {
+            log('Không thể trích xuất ID của celeb nào. Dừng lại.', 'error');
+             updateControlButtonState({ isRunning: false });
+            return;
+        }
+        const totalCount = celebIds.length;
+        log(`Tìm thấy tổng cộng ${totalCount} celeb. Bắt đầu xử lý...`);
+        sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [...celebIds], totalCount: totalCount }));
+        updateControlButtonState({ isRunning: true });
+        if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
+            startReloadTimer(currentTimerConfig.minutes);
+        }
+        processNextCeleb(celebIds, totalCount);
+    };
+
+    function stopProcess(shouldReload = true) {
+        cancelReloadTimer();
+        localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
+        sessionStorage.removeItem(CONFIG.STORAGE_KEY);
+        log('Đã dừng quá trình tự động theo yêu cầu người dùng.', 'info');
+        if (shouldReload) {
+            log('Đang tải lại trang...');
+            location.reload();
+        } else {
+            updateControlButtonState({ isRunning: false });
+        }
+    }
+
+    // --- Main Execution (Điểm khởi chạy) ---
+    (function main() {
+        log('Userscript đã được kích hoạt (v1.2 - Sửa lỗi Timer).', 'success');
+
+        // --- 1. Chạy trên TẤT CẢ các trang ---
+        try {
+            injectNewStyles();
+            createMainControlUI();
+            loadTimerConfig();
+            setupTimerControls();
+        } catch (e) {
+            console.error('[Auto Locket Celeb] Lỗi khi khởi tạo UI: ', e);
+            return; // Dừng lại nếu UI lỗi
+        }
+        
+        const controlButton = document.getElementById('auto-celeb-control-button');
+        if (!controlButton) {
+             log('Không tìm thấy control button. Script dừng.', 'error');
+             return;
+        }
+        
+        controlButton.addEventListener('click', () => {
+            if (window.location.href !== CONFIG.TARGET_PAGE) {
+                log('Đang ở trang khác. Chuyển hướng về celebrity.html...');
+                window.location.href = CONFIG.TARGET_PAGE;
+                return;
+            }
+            
+            const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+            if (state.isRunning) {
+                stopProcess();
+            } else {
+                startProcess();
+            }
+        });
+
+        // --- 2. CHỈ chạy trên trang celebrity.html ---
+        if (window.location.href === CONFIG.TARGET_PAGE) {
+            log('Đang ở trang celebrity.html. Kích hoạt logic auto-run và UI hỗ trợ.');
+            
+            scrollToCelebSection();
+            closeNotificationPopup();
+
+            const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+            const needsTimerRestart = localStorage.getItem(CONFIG.TIMER_RESTART_KEY) === 'true';
+
+            updateControlButtonState(currentState);
+
+            if (needsTimerRestart) {
+                log('PHÁT HIỆN CỜ RESTART. Tự động bắt đầu sau 2 giây...', 'timer');
+                localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
+                setTimeout(startProcess, 2000);
+            }
+            else if (currentState.isRunning && !currentState.finished && currentState.celebIds && currentState.celebIds.length > 0) {
+                log('Phát hiện phiên làm việc chưa hoàn tất. Tự động tiếp tục sau 2 giây...', 'info');
+                if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
+                    startReloadTimer(currentTimerConfig.minutes);
+                }
+                setTimeout(() => processNextCeleb(currentState.celebIds, currentState.totalCount), 2000);
+            }
+            else if (currentState.isRunning && currentState.finished) {
+                log('Quá trình đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer (nếu bật).', 'success');
+                if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
+                    startReloadTimer(currentTimerConfig.minutes);
+                }
+            }
+        } else {
+            log('Đang ở trang khác. Chỉ hiển thị UI.');
+            // Hiển thị trạng thái cuối cùng đã lưu (quan trọng cho logic v1.2)
+            const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+            updateControlButtonState(currentState.isRunning ? currentState : { isRunning: false });
+        }
     })();
+    
+    // ***** KẾT THÚC CODE ĐÃ SỬA LỖI *****
 })();

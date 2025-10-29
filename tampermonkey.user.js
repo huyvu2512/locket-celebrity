@@ -1,12 +1,10 @@
 // ==UserScript==
-// @name         Auto Locket Celeb (v1.1)
+// @name         Auto Locket Celeb (v1.0)
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.0
 // @description  Tự động kết bạn với tất cả Celeb, hẹn giờ tùy chỉnh để khởi động lại web.
 // @author       Huy Vũ
 // @require      https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/locket-auto-celeb.main.js
-// @updateURL    https://raw.githubusercontent.com/huyvu2512/auto-locket-celeb/main/tampermonkey.user.js
-// @downloadURL  https://raw.githubusercontent.com/huyvu2512/auto-locket-celeb/main/tampermonkey.user.js
 // @match        https://locket.binhake.dev/*
 // @run-at       document-idle
 // @grant        none
