@@ -562,4 +562,5 @@
             updateControlButtonState({ isRunning: false });
         }
     })();
+// KẾT THÚC DÁN MÃ v2.9.9
 })();
