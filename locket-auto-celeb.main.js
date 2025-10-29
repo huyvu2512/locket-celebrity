@@ -1,7 +1,7 @@
 (function() {
     'use strict';
     
-    // ***** BẮT ĐẦU CODE ĐÃ SỬA LỖI *****
+    // ***** BẮT ĐẦU CODE ĐÃ SỬA LỖI (LOGIC V1.3) *****
     
     const CONFIG = {
         STORAGE_KEY: 'autoCelebState',
@@ -16,8 +16,8 @@
 
     // --- UI & Logging ---
     function log(message, type = 'log') {
-        const styles = { log: 'color: inherit;', info: 'color: #3b82f6;', success: 'color: #22c55e;', error: 'color: #ef4444; font-weight: bold;', rocket: '', timer: 'color: #f59e0b;' };
-        const prefix = type === 'rocket' ? '🚀' : (type === 'success' ? '✅' : (type === 'info' ? 'ℹ️' : (type === 'timer' ? '⏱️' : '➡️')));
+        const styles = { log: 'color: inherit;', info: 'color: #3b82f6;', success: 'color: #22c55e;', error: 'color: #ef4444; font-weight: bold;', rocket: '', timer: 'color: #f59e0b;', warn: 'color: #f59e0b;' };
+        const prefix = type === 'rocket' ? '🚀' : (type === 'success' ? '✅' : (type === 'info' ? 'ℹ️' : (type === 'timer' ? '⏱️' : (type === 'warn' ? '⚠️' : '➡️'))));
         console.log(`%c[Auto Locket Celeb]%c ${prefix} ${message}`, 'color: #8b5cf6; font-weight: bold;', styles[type] || styles.log);
     }
 
@@ -275,25 +275,19 @@
 
     // --- Chức năng Hẹn giờ Tự Reset ---
     
-    // <-- HÀM loadTimerConfig ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.2)
     function loadTimerConfig() {
         const configStr = localStorage.getItem(CONFIG.TIMER_CONFIG_KEY);
         if (configStr) {
             const savedConfig = JSON.parse(configStr);
             currentTimerConfig.minutes = savedConfig.minutes || 60;
-            currentTimerConfig.enabled = savedConfig.enabled || false; // <-- ĐÃ SỬA LỖI
+            currentTimerConfig.enabled = savedConfig.enabled || false;
         } else {
-            // Nếu chưa có gì được lưu, dùng giá trị mặc định
             currentTimerConfig.minutes = 60;
             currentTimerConfig.enabled = false;
         }
         
-        // Cập nhật log để hiển thị đúng trạng thái BẬT/TẮT
         log(`Đã tải Cài đặt Hẹn giờ (${currentTimerConfig.enabled ? 'BẬT' : 'TẮT'}, ${currentTimerConfig.minutes} phút).`, 'info');
         
-        // Không gọi updateTimerUI() ngay lập tức ở đây
-        // Vì logic chính sẽ gọi updateTimerUI('counting', ...) nếu cần
-        // Chỉ gọi khi không có timer đang chạy
         const activeTimerEndTime = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
         if (!activeTimerEndTime) {
              updateTimerUI();
@@ -301,7 +295,6 @@
     }
     
     function saveTimerConfig() {
-        // Chỉ lưu 'minutes' và 'enabled'
         const configToSave = {
             minutes: currentTimerConfig.minutes,
             enabled: currentTimerConfig.enabled
@@ -314,7 +307,7 @@
         const plusBtn = document.getElementById('timer-plus-btn');
         const minusBtn = document.getElementById('timer-minus-btn');
         
-        if (!timerUI || !plusBtn || !minusBtn) return; // Thêm kiểm tra
+        if (!timerUI || !plusBtn || !minusBtn) return;
 
         const toggleTimer = () => {
             if (activeTimerId) return;
@@ -366,22 +359,18 @@
 
     // --- CÁC HÀM LOGIC CHÍNH (CHỈ CHẠY TRÊN TRANG TARGET) ---
 
-    // <-- HÀM startReloadTimer ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.1)
     function startReloadTimer(minutes) {
         if (activeTimerId) clearInterval(activeTimerId);
 
-        // 1. Kiểm tra xem có endTime đã lưu từ trước không
         let endTimeStr = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
         let endTime;
 
         if (!endTimeStr) {
-            // 2. Nếu KHÔNG, tạo endTime mới và lưu lại
             const durationInSeconds = minutes * 60;
             endTime = Date.now() + durationInSeconds * 1000;
             sessionStorage.setItem(CONFIG.TIMER_END_TIME_KEY, endTime.toString());
             log(`Đã BẮT ĐẦU đồng hồ đếm ngược. Reset sau ${minutes} phút.`, 'timer');
         } else {
-            // 3. Nếu CÓ, dùng lại endTime cũ
             endTime = parseInt(endTimeStr, 10);
             const remainingMinutes = ((endTime - Date.now()) / 60000).toFixed(1);
             log(`Đã TIẾP TỤC đồng hồ đếm ngược (còn ${remainingMinutes} phút).`, 'timer');
@@ -394,18 +383,17 @@
             if (secondsRemaining <= 0) {
                 clearInterval(activeTimerId);
                 activeTimerId = null;
-                sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY); // Xóa khi hết giờ
+                sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
                 updateTimerUI('counting', 0);
                 executeTimerReset();
             } else {
                 updateTimerUI('counting', secondsRemaining);
             }
         }
-        updateCountdown(); // Chạy ngay lần đầu
+        updateCountdown();
         activeTimerId = setInterval(updateCountdown, 1000);
     }
 
-    // <-- HÀM cancelReloadTimer ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.1)
     function cancelReloadTimer() {
         if (activeTimerId) {
             clearInterval(activeTimerId);
@@ -413,7 +401,6 @@
             log('Đã hủy đồng hồ đếm ngược.', 'info');
             updateTimerUI();
         }
-        // QUAN TRỌNG: Xóa endTime đã lưu khi người dùng chủ động dừng
         sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
     }
 
@@ -421,7 +408,6 @@
         log('Hẹn giờ kết thúc. ĐANG ĐẶT CỜ RESTART VÀ TẢI LẠI TRANG...', 'timer');
         localStorage.setItem(CONFIG.TIMER_RESTART_KEY, 'true');
         sessionStorage.removeItem(CONFIG.STORAGE_KEY);
-        // Cũng xóa end time khi reset
         sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
         location.reload();
     }
@@ -449,13 +435,7 @@
         return new Promise(resolve => setTimeout(resolve, ms));
     }
     
-    // ***** BẮT ĐẦU SỬA LỖI (HÀM MỚI) *****
-    /**
-     * HÀM HỖ TRỢ: Chờ một element (bằng ID) xuất hiện
-     * Sửa lỗi: Chờ element load trước khi xử lý, tránh bị "treo" do web load chậm
-     * SỬA LỖI (VPS): Tăng timeout lên 3 phút (180000ms)
-     */
-    function waitForElementById(elementId, timeout = 180000, interval = 500) { // <-- Mặc định chờ 3 phút
+    function waitForElementById(elementId, timeout = 180000, interval = 500) {
         return new Promise((resolve, reject) => {
             let elapsedTime = 0;
             const check = () => {
@@ -475,7 +455,6 @@
             check();
         });
     }
-    // ***** KẾT THÚC SỬA LỖI (HÀM MỚI) *****
     
 
     async function processNextCeleb(celebIds, totalCount) {
@@ -492,39 +471,36 @@
         }
         
         const currentId = celebIds.shift();
-        // Lưu state ngay lập tức (quan trọng)
         sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [...celebIds], totalCount: totalCount }));
 
-        // ***** BẮT ĐẦU SỬA LỖI (CHỜ ELEMENT) *****
         let parentElement;
         try {
             const elementId = currentId + '_parentElement';
             log(`Đang chờ container của celeb: ${currentId}...`, 'info');
-            // SỬA LỖI (VPS): Chờ element xuất hiện, tối đa 3 phút
-            parentElement = await waitForElementById(elementId, 180000, 500); // <-- Chờ 3 phút
+            parentElement = await waitForElementById(elementId, 180000, 500);
         } catch (error) {
-            // Lỗi này xảy ra khi web load quá chậm, không tìm thấy celeb
-            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 3 phút chờ). Bỏ qua.`, 'error'); // <-- Sửa log
-            // Tự động gọi celeb tiếp theo
+            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 3 phút chờ). Bỏ qua.`, 'error');
             await processNextCeleb(celebIds, totalCount); 
             return;
         }
-        // ***** KẾT THÚC SỬA LỖI (CHỜ ELEMENT) *****
 
         if (!parentElement) {
-            // Check này vẫn giữ lại, phòng trường hợp lỗi không xác định
             log(`Không tìm thấy container cho celeb ID: ${currentId}. Bỏ qua.`, 'error');
             await processNextCeleb(celebIds, totalCount);
             return;
         }
         
-        const button = parentElement.querySelector('button[data-status="waitlist"]');
-        const nameElement = parentElement.closest('.profile')?.querySelector('.profile-name');
+        // Logic tìm nút và tên dựa trên logic V1.3 đã test
+        const profileDiv = parentElement.closest('.profile');
+        const button = profileDiv ? profileDiv.querySelector('button.showMoreBtn') : null;
+        const nameElement = profileDiv ? profileDiv.querySelector('.profile-name') : null;
+        
         const celebName = nameElement ? nameElement.textContent.trim() : `ID: ${currentId}`;
         const processedCount = totalCount - celebIds.length;
         const countText = `(${processedCount}/${totalCount})`;
         
-        if (!button) {
+        // Kiểm tra xem nút có phải là "Thêm bạn bè" không
+        if (!button || !button.textContent.includes('Thêm bạn bè')) {
             log(`${countText} ${celebName} đã được thêm hoặc không có sẵn. Bỏ qua.`, 'info');
             await processNextCeleb(celebIds, totalCount);
             return;
@@ -539,7 +515,7 @@
         if (startButton) {
             log(`Nhấn nút "Bắt đầu" cho ${celebName}`);
             startButton.click();
-            await sleep(2000); // Chờ trang load
+            await sleep(2000);
             
             if (celebIds.length === 0) {
                 log(`Đã xử lý celeb cuối cùng: ${celebName}. Script đã hoàn thành. Nhấn "Dừng" để reset hoặc chờ timer.`, 'success');
@@ -550,7 +526,7 @@
                 log('Quay trở lại danh sách celeb để xử lý người tiếp theo...');
                 const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
                 if (celebToolsLink) {
-                    celebToolsLink.click(); // Click để điều hướng, script sẽ tự chạy lại ở trang mới
+                    celebToolsLink.click();
                 } else {
                     log('LỖI: Không tìm thấy link "Celebrity Tools". Dừng script.', 'error');
                     stopProcess(false);
@@ -562,32 +538,73 @@
         }
     }
 
+    // ***** HÀM startProcess ĐÃ CẬP NHẬT THEO LOGIC V1.3 *****
     function startProcess() {
-        log('Bắt đầu quá trình tự động thêm celeb...', 'rocket');
-        const availableButtons = document.querySelectorAll('button[data-status="waitlist"]');
-        if (availableButtons.length === 0) {
-            log('Không tìm thấy celeb nào có sẵn để thêm.', 'info');
+        log('Bắt đầu quá trình tự động (Logic V1.3)...', 'rocket');
+        
+        // 1. Tìm tất cả các thẻ .profile
+        const profileCards = document.querySelectorAll('div.profile');
+        
+        if (profileCards.length === 0) {
+            log('Không tìm thấy thẻ div.profile nào.', 'error');
              updateControlButtonState({ isRunning: false });
             return;
         }
-        const celebIds = Array.from(availableButtons).map(btn => {
-            const parent = btn.parentElement;
-            return (parent && parent.id && parent.id.endsWith('_parentElement')) ? parent.id.replace('_parentElement', '') : null;
-        }).filter(id => id !== null);
+        log(`Tìm thấy ${profileCards.length} profile. Bắt đầu lọc...`);
+
+        const celebIds = [];
+        let errorCount = 0;
+
+        // 2. Lặp qua từng thẻ để lọc
+        profileCards.forEach(card => {
+            const nameElement = card.querySelector('div.profile-name');
+            const addButton = card.querySelector('button.showMoreBtn'); // Giống logic V1.3
+            const idElement = card.querySelector('[id$="_parentElement"]'); // Lấy ID
+
+            // 3. Kiểm tra cấu trúc
+            if (nameElement && addButton && idElement) {
+                const celebName = nameElement.textContent.trim();
+                const buttonText = addButton.textContent.trim();
+                
+                // 4. Chỉ lấy những celeb "Thêm bạn bè"
+                if (buttonText.includes('Thêm bạn bè')) {
+                    const celebId = idElement.id.replace('_parentElement', '');
+                    log(`Quét thành công: ID = ${celebId}, Tên = ${celebName}`, 'success');
+                    celebIds.push(celebId);
+                } else {
+                    // Bỏ qua (Bạn bè, Đã gửi, v.v.)
+                    // log(`Bỏ qua: ${celebName} (Trạng thái: ${buttonText})`, 'info');
+                }
+            } else {
+                // Lỗi cấu trúc (thiếu tên, nút, hoặc id)
+                errorCount++;
+            }
+        });
+
+        if (errorCount > 0) {
+             log(`Đã bỏ qua ${errorCount} thẻ do lỗi cấu trúc (thiếu tên, nút hoặc ID).`, 'warn');
+        }
+
+        // 5. Kiểm tra kết quả
         if (celebIds.length === 0) {
-            log('Không thể trích xuất ID của celeb nào. Dừng lại.', 'error');
+            log('Không tìm thấy celeb nào có thể thêm. Dừng lại.', 'info');
              updateControlButtonState({ isRunning: false });
             return;
         }
+        
+        // 6. Tiếp tục logic xử lý như cũ
         const totalCount = celebIds.length;
-        log(`Tìm thấy tổng cộng ${totalCount} celeb. Bắt đầu xử lý...`);
+        log(`Tìm thấy tổng cộng ${totalCount} celeb hợp lệ. Bắt đầu xử lý...`);
         sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [...celebIds], totalCount: totalCount }));
         updateControlButtonState({ isRunning: true });
+        
         if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
             startReloadTimer(currentTimerConfig.minutes);
         }
+        
         processNextCeleb(celebIds, totalCount);
     };
+    // ***** KẾT THÚC HÀM SỬA LỖI *****
 
     function stopProcess(shouldReload = true) {
         cancelReloadTimer();
@@ -604,8 +621,7 @@
 
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
-        // Log phiên bản
-        log('Userscript đã được kích hoạt (v1.0 - Sửa lỗi chờ 3 phút + check 20s).', 'success'); // <-- ĐÃ SỬA
+        log('Userscript đã được kích hoạt (v1.3 - Logic quét mới).', 'success');
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
         try {
@@ -615,7 +631,7 @@
             setupTimerControls();
         } catch (e) {
             console.error('[Auto Locket Celeb] Lỗi khi khởi tạo UI: ', e);
-            return; // Dừng lại nếu UI lỗi
+            return;
         }
         
         const controlButton = document.getElementById('auto-celeb-control-button');
@@ -643,17 +659,13 @@
         if (window.location.href === CONFIG.TARGET_PAGE) {
             log('Đang ở trang celebrity.html. Kích hoạt logic auto-run và UI hỗ trợ.');
             
-            // ***** BẮT ĐẦU SỬA LỖI (Kiểm tra 20s) *****
-            // Hàm async này sẽ bao bọc logic chính
             async function runCelebLogic() {
                 try {
                     log('Kiểm tra 20s: Đang chờ container (usernameSearch) tải...', 'timer');
-                    // Chờ container chính (usernameSearch) trong 20 giây
-                    await waitForElementById('usernameSearch', 20000); // Chờ 20 giây
-                    log('Kiểm tra 20s: Container đã tải. Tiếp tục script.', 'success');
+                    await waitForElementById('usernameSearch', 20000);
+                    log('Kiểmka 20s: Container đã tải. Tiếp tục script.', 'success');
                     
-                    // --- Bắt đầu logic chính (code này đã có) ---
-                    scrollToCelebSection(); // Giờ nó đã an toàn để gọi
+                    scrollToCelebSection();
                     closeNotificationPopup();
         
                     const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
@@ -679,30 +691,25 @@
                             startReloadTimer(currentTimerConfig.minutes);
                         }
                     }
-                    // --- Kết thúc logic chính ---
         
                 } catch (error) {
-                    // HẾT 20s, container (usernameSearch) không xuất hiện
                     log('Kiểm tra 20s: HẾT GIỜ. Container (usernameSearch) không tải. Đang reload trang...', 'error');
                     
                     const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
                     if (celebToolsLink) {
                         log('Đang click "Celebrity Tools" để tải lại.');
-                        celebToolsLink.click(); // Click nút "Celebrity Tools" như yêu cầu
+                        celebToolsLink.click();
                     } else {
                         log('LỖI: Không tìm thấy "Celebrity Tools". Dùng location.reload().', 'error');
-                        location.reload(); // Dự phòng nếu không tìm thấy nút
+                        location.reload();
                     }
                 }
             }
 
-            // Gọi hàm async mới
             runCelebLogic();
-            // ***** KẾT THÚC SỬA LỖI (Kiểm tra 20s) *****
 
         } else {
             log('Đang ở trang khác. Chỉ hiển thị UI.');
-            // Hiển thị trạng thái cuối cùng đã lưu
             const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
             updateControlButtonState(currentState.isRunning ? currentState : { isRunning: false });
         }
