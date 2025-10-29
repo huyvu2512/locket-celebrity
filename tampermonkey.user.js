@@ -8,7 +8,7 @@
 // @match        https://locket.binhake.dev/*
 // @run-at       document-idle
 // @grant        none
-// @icon         https://github.com/user-attachments/assets/a5738cf1-763a-4a4b-bf07-c9d1d335910a
+// @icon         https://github.com/user-attachments/assets/b3ddc5ef-db81-4a28-8a54-c589a99ee56a
 //
 // @updateURL    https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js
 // @downloadURL  https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js
