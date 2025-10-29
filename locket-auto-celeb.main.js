@@ -7,7 +7,7 @@
         STORAGE_KEY: 'autoCelebState',
         TIMER_CONFIG_KEY: 'autoCelebTimerConfig_v2.9',
         TIMER_RESTART_KEY: 'autoCelebTimerRestart',
-        TIMER_END_TIME_KEY: 'autoCelebTimerEndTime', // <-- ĐÃ THÊM
+        TIMER_END_TIME_KEY: 'autoCelebTimerEndTime', // Fix đếm ngược khi reload
         TARGET_PAGE: 'https://locket.binhake.dev/celebrity.html'
     };
 
@@ -274,19 +274,39 @@
     }
 
     // --- Chức năng Hẹn giờ Tự Reset ---
+    
+    // <-- HÀM loadTimerConfig ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.2)
     function loadTimerConfig() {
         const configStr = localStorage.getItem(CONFIG.TIMER_CONFIG_KEY);
         if (configStr) {
             const savedConfig = JSON.parse(configStr);
             currentTimerConfig.minutes = savedConfig.minutes || 60;
+            currentTimerConfig.enabled = savedConfig.enabled || false; // <-- ĐÃ SỬA LỖI
+        } else {
+            // Nếu chưa có gì được lưu, dùng giá trị mặc định
+            currentTimerConfig.minutes = 60;
+            currentTimerConfig.enabled = false;
         }
-        currentTimerConfig.enabled = false; 
-        log(`Đã tải Cài đặt Hẹn giờ (Mặc định TẮT, ${currentTimerConfig.minutes} phút).`, 'info');
-        updateTimerUI();
+        
+        // Cập nhật log để hiển thị đúng trạng thái BẬT/TẮT
+        log(`Đã tải Cài đặt Hẹn giờ (${currentTimerConfig.enabled ? 'BẬT' : 'TẮT'}, ${currentTimerConfig.minutes} phút).`, 'info');
+        
+        // Không gọi updateTimerUI() ngay lập tức ở đây
+        // Vì logic chính sẽ gọi updateTimerUI('counting', ...) nếu cần
+        // Chỉ gọi khi không có timer đang chạy
+        const activeTimerEndTime = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
+        if (!activeTimerEndTime) {
+             updateTimerUI();
+        }
     }
     
     function saveTimerConfig() {
-        localStorage.setItem(CONFIG.TIMER_CONFIG_KEY, JSON.stringify(currentTimerConfig));
+        // Chỉ lưu 'minutes' và 'enabled'
+        const configToSave = {
+            minutes: currentTimerConfig.minutes,
+            enabled: currentTimerConfig.enabled
+        };
+        localStorage.setItem(CONFIG.TIMER_CONFIG_KEY, JSON.stringify(configToSave));
     }
     
     function setupTimerControls() {
@@ -346,7 +366,7 @@
 
     // --- CÁC HÀM LOGIC CHÍNH (CHỈ CHẠY TRÊN TRANG TARGET) ---
 
-    // <-- HÀM startReloadTimer ĐÃ ĐƯỢC CẬP NHẬT
+    // <-- HÀM startReloadTimer ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.1)
     function startReloadTimer(minutes) {
         if (activeTimerId) clearInterval(activeTimerId);
 
@@ -385,7 +405,7 @@
         activeTimerId = setInterval(updateCountdown, 1000);
     }
 
-    // <-- HÀM cancelReloadTimer ĐÃ ĐƯỢC CẬP NHẬT
+    // <-- HÀM cancelReloadTimer ĐÃ ĐƯỢC CẬP NHẬT (SỬA LỖI v1.1)
     function cancelReloadTimer() {
         if (activeTimerId) {
             clearInterval(activeTimerId);
@@ -531,7 +551,7 @@
 
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
-        log('Userscript đã được kích hoạt (v1.1 - Sửa lỗi Timer).', 'success');
+        log('Userscript đã được kích hoạt (v1.2 - Sửa lỗi Timer).', 'success');
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
         try {
@@ -597,7 +617,9 @@
             }
         } else {
             log('Đang ở trang khác. Chỉ hiển thị UI.');
-            updateControlButtonState({ isRunning: false });
+            // Hiển thị trạng thái cuối cùng đã lưu (quan trọng cho logic v1.2)
+            const currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+            updateControlButtonState(currentState.isRunning ? currentState : { isRunning: false });
         }
     })();
     
