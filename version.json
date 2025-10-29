@@ -1,0 +1,5 @@
+{
+  "version": "1.1",
+  "changelog": "Smart Resume (localStorage), Auto Update, Retry logic, Speed selector, Timer fixes",
+  "download_url": "https://raw.githubusercontent.com/huyvu2512/auto-locket-celeb/main/tampermonkey.user.js"
+}
