@@ -340,7 +340,7 @@
             currentTimerConfig.minutes += 5;
             log(`Tăng thời gian hẹn giờ lên: ${currentTimerConfig.minutes} phút.`, 'timer');
             saveTimerConfig();
-            updateTimerUI();
+            updateTimerConfig();
         });
     
         minusBtn.addEventListener('click', (event) => {
@@ -453,9 +453,9 @@
     /**
      * HÀM HỖ TRỢ: Chờ một element (bằng ID) xuất hiện
      * Sửa lỗi: Chờ element load trước khi xử lý, tránh bị "treo" do web load chậm
-     * SỬA LỖI (VPS): Tăng timeout lên 30 giây
+     * SỬA LỖI (VPS): Tăng timeout lên 3 phút (180000ms)
      */
-    function waitForElementById(elementId, timeout = 30000, interval = 500) { // <-- ĐÃ SỬA: 30000
+    function waitForElementById(elementId, timeout = 180000, interval = 500) { // <-- ĐÃ SỬA: 180000
         return new Promise((resolve, reject) => {
             let elapsedTime = 0;
             const check = () => {
@@ -500,11 +500,11 @@
         try {
             const elementId = currentId + '_parentElement';
             log(`Đang chờ container của celeb: ${currentId}...`, 'info');
-            // SỬA LỖI (VPS): Chờ element xuất hiện, tối đa 30 giây
-            parentElement = await waitForElementById(elementId, 30000, 500); // <-- ĐÃ SỬA: 30000
+            // SỬA LỖI (VPS): Chờ element xuất hiện, tối đa 3 phút
+            parentElement = await waitForElementById(elementId, 180000, 500); // <-- ĐÃ SỬA: 180000
         } catch (error) {
             // Lỗi này xảy ra khi web load quá chậm, không tìm thấy celeb
-            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 30s chờ). Bỏ qua.`, 'error'); // <-- ĐÃ SỬA: 30s
+            log(`Không tìm thấy container cho celeb ID: ${currentId} (sau 3 phút chờ). Bỏ qua.`, 'error'); // <-- ĐÃ SỬA: 3 phút
             // Tự động gọi celeb tiếp theo
             await processNextCeleb(celebIds, totalCount); 
             return;
@@ -607,7 +607,7 @@
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
         // Log phiên bản
-        log('Userscript đã được kích hoạt (v1.0 - Sửa lỗi chờ 30s).', 'success'); // <-- ĐÃ SỬA: 30s
+        log('Userscript đã được kích hoạt (v1.0 - Sửa lỗi chờ 3 phút).', 'success'); // <-- ĐÃ SỬA: 3 phút
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
         try {
