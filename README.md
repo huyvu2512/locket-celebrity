@@ -13,7 +13,8 @@
     * Nhấn "Bắt đầu Auto Celeb" để script tự động chuyển về trang Celeb và chạy.
       
 ## 📛 Lưu ý: 
-**Nếu đã cài đặt nhưng vào Web công cụ không hiện nghĩa là bạn chưa cấp hết quyền cho Tampermonkey.**:
-    - Nhấn chuột phải vào icon Tampermonkey
-    - Chọn Quản lý tiện ích
-    - Kéo xuống và tìm Allow User Scripts rồi cấp quyền cho nó là được
+1. **Nếu đã cài đặt nhưng vào Web công cụ không hiện nghĩa là bạn chưa cấp hết quyền cho Tampermonkey.**:
+  
+    * Nhấn chuột phải vào icon Tampermonkey
+    * Chọn Quản lý tiện ích
+    * Kéo xuống và tìm Allow User Scripts rồi cấp quyền cho nó là được
