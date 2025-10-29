@@ -21,4 +21,4 @@
 
 2. **Trường hợp treo bằng VPS không phải Sever VN**:
 
-    * Ai mà treo bằng VPS không phải Sever VN thì nên add thêm extension [Urban VPN Proxy](https://chromewebstore.google.com/detail/urban-vpn-proxy/eppiocemhmnlbhjplcgkofciiegomcon?hl=vi) sau đó bật VPN Việt Nam lên để tránh bị treo web và xác minh con người nhé.
+    * Ai mà treo bằng VPS không phải Sever VN thì nên add thêm extension [Urban VPN Proxy](https://chromewebstore.google.com/detail/urban-vpn-proxy/eppiocemhmnlbhjplcgkofciiegomcon?hl=vi) sau đó bật VPN Việt Nam lên để tránh bị treo web và xác minh không phải robot nhé.
