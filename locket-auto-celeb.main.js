@@ -1,10 +1,13 @@
 (function() {
     'use strict';
     
+    // ***** BẮT ĐẦU CODE ĐÃ SỬA LỖI *****
+    
     const CONFIG = {
         STORAGE_KEY: 'autoCelebState',
         TIMER_CONFIG_KEY: 'autoCelebTimerConfig_v2.9',
         TIMER_RESTART_KEY: 'autoCelebTimerRestart',
+        TIMER_END_TIME_KEY: 'autoCelebTimerEndTime', // <-- ĐÃ THÊM
         TARGET_PAGE: 'https://locket.binhake.dev/celebrity.html'
     };
 
@@ -222,6 +225,7 @@
      */
     function updateControlButtonState(state) {
         const button = document.getElementById('auto-celeb-control-button');
+        if (!button) return; // Thêm kiểm tra
         if (state.isRunning) {
             button.textContent = 'Dừng Auto Celeb';
             button.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
@@ -289,7 +293,9 @@
         const timerUI = document.getElementById('auto-celeb-timer-ui');
         const plusBtn = document.getElementById('timer-plus-btn');
         const minusBtn = document.getElementById('timer-minus-btn');
-    
+        
+        if (!timerUI || !plusBtn || !minusBtn) return; // Thêm kiểm tra
+
         const toggleTimer = () => {
             if (activeTimerId) return;
             currentTimerConfig.enabled = !currentTimerConfig.enabled;
@@ -340,27 +346,46 @@
 
     // --- CÁC HÀM LOGIC CHÍNH (CHỈ CHẠY TRÊN TRANG TARGET) ---
 
+    // <-- HÀM startReloadTimer ĐÃ ĐƯỢC CẬP NHẬT
     function startReloadTimer(minutes) {
         if (activeTimerId) clearInterval(activeTimerId);
-        const durationInSeconds = minutes * 60;
-        const endTime = Date.now() + durationInSeconds * 1000;
-        log(`Đã bật đồng hồ đếm ngược. Reset sau ${minutes} phút.`, 'timer');
+
+        // 1. Kiểm tra xem có endTime đã lưu từ trước không
+        let endTimeStr = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
+        let endTime;
+
+        if (!endTimeStr) {
+            // 2. Nếu KHÔNG, tạo endTime mới và lưu lại
+            const durationInSeconds = minutes * 60;
+            endTime = Date.now() + durationInSeconds * 1000;
+            sessionStorage.setItem(CONFIG.TIMER_END_TIME_KEY, endTime.toString());
+            log(`Đã BẮT ĐẦU đồng hồ đếm ngược. Reset sau ${minutes} phút.`, 'timer');
+        } else {
+            // 3. Nếu CÓ, dùng lại endTime cũ
+            endTime = parseInt(endTimeStr, 10);
+            const remainingMinutes = ((endTime - Date.now()) / 60000).toFixed(1);
+            log(`Đã TIẾP TỤC đồng hồ đếm ngược (còn ${remainingMinutes} phút).`, 'timer');
+        }
+
         function updateCountdown() {
             const now = Date.now();
             const secondsRemaining = (endTime - now) / 1000;
+
             if (secondsRemaining <= 0) {
                 clearInterval(activeTimerId);
                 activeTimerId = null;
+                sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY); // Xóa khi hết giờ
                 updateTimerUI('counting', 0);
                 executeTimerReset();
             } else {
                 updateTimerUI('counting', secondsRemaining);
             }
         }
-        updateCountdown();
+        updateCountdown(); // Chạy ngay lần đầu
         activeTimerId = setInterval(updateCountdown, 1000);
     }
 
+    // <-- HÀM cancelReloadTimer ĐÃ ĐƯỢC CẬP NHẬT
     function cancelReloadTimer() {
         if (activeTimerId) {
             clearInterval(activeTimerId);
@@ -368,12 +393,16 @@
             log('Đã hủy đồng hồ đếm ngược.', 'info');
             updateTimerUI();
         }
+        // QUAN TRỌNG: Xóa endTime đã lưu khi người dùng chủ động dừng
+        sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
     }
 
     function executeTimerReset() {
         log('Hẹn giờ kết thúc. ĐANG ĐẶT CỜ RESTART VÀ TẢI LẠI TRANG...', 'timer');
         localStorage.setItem(CONFIG.TIMER_RESTART_KEY, 'true');
         sessionStorage.removeItem(CONFIG.STORAGE_KEY);
+        // Cũng xóa end time khi reset
+        sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
         location.reload();
     }
 
@@ -502,15 +531,24 @@
 
     // --- Main Execution (Điểm khởi chạy) ---
     (function main() {
-        log('Userscript đã được kích hoạt (v1.0 - Chạy trên toàn trang).', 'success');
+        log('Userscript đã được kích hoạt (v1.1 - Sửa lỗi Timer).', 'success');
 
         // --- 1. Chạy trên TẤT CẢ các trang ---
-        injectNewStyles();
-        createMainControlUI();
-        loadTimerConfig();
-        setupTimerControls();
-
+        try {
+            injectNewStyles();
+            createMainControlUI();
+            loadTimerConfig();
+            setupTimerControls();
+        } catch (e) {
+            console.error('[Auto Locket Celeb] Lỗi khi khởi tạo UI: ', e);
+            return; // Dừng lại nếu UI lỗi
+        }
+        
         const controlButton = document.getElementById('auto-celeb-control-button');
+        if (!controlButton) {
+             log('Không tìm thấy control button. Script dừng.', 'error');
+             return;
+        }
         
         controlButton.addEventListener('click', () => {
             if (window.location.href !== CONFIG.TARGET_PAGE) {
@@ -562,5 +600,6 @@
             updateControlButtonState({ isRunning: false });
         }
     })();
-// KẾT THÚC DÁN MÃ v2.9.9
+    
+    // ***** KẾT THÚC CODE ĐÃ SỬA LỖI *****
 })();
