@@ -15,5 +15,5 @@
 ## 📛 Lưu ý: 
 1. **Nếu đã cài đặt nhưng vào Web công cụ không hiện nghĩa là bạn chưa cấp hết quyền cho Tampermonkey**:
   
-    * [Nhấn vào đây](chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo)
+    * Sao chép và dán vào trình duyệt: chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo
     * Kéo xuống và tìm Allow User Scripts rồi cấp quyền cho nó là được
