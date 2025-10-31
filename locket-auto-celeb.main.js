@@ -837,7 +837,7 @@
         if (btnUpdate) {
             btnUpdate.addEventListener('click', (e) => {
                 e.preventDefault();
-                window.open('https://raw.githubusercontent.com/huyvu2512/test/main/tampermonkey.user.js', '_blank');
+                window.open('https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js', '_blank');
             });
         }
 
@@ -1317,3 +1317,4 @@
 
     })();
 })();
+
