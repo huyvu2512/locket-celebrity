@@ -1665,7 +1665,9 @@
 
 
     /**
-     * *** ĐÃ SỬA (Task 14): Thêm bộ đếm lỗi kết nối ***
+     * *** ĐÃ SỬA (FIX LỖI RESET) ***
+     * Thay đổi logic reset khi mất kết nối 5 lần.
+     * Thay vì reset celeb cuối (gây lỗi), sẽ reset toàn bộ script (giống Timer).
      */
     async function startRealtimeLogObserver(celebId) {
         if (webLogObserver) {
@@ -1749,20 +1751,37 @@
                 sessionStorage.setItem(CONFIG.CONNECTION_LOST_COUNTER_KEY, String(counter));
                 log(`Phát hiện mất kết nối lần ${counter}/${CONFIG.CONNECTION_LOST_MAX_RETRIES}.`, 'warn');
 
+                // ==========================================
+                // ===== BẮT ĐẦU SỬA LỖI (THEO YÊU CẦU) =====
+                // ==========================================
                 if (counter > CONFIG.CONNECTION_LOST_MAX_RETRIES) {
-                    log('Mất kết nối quá 5 lần. Đang reset lại celeb này...', 'error');
+                    log('Mất kết nối quá 5 lần. ĐANG ĐẶT CỜ RESTART (LỖI) VÀ TẢI LẠI TRANG...', 'error');
                     clearInterval(webLogObserver); // Dừng theo dõi
                     webLogObserver = null;
 
-                    // Đặt cờ reset celeb
-                    localStorage.setItem(CONFIG.CELEB_RESTART_KEY, 'true');
+                    // --- SỬA LỖI: Dùng logic reset của Timer ---
+                    // 1. Đặt cờ reset của TIMER, không phải cờ celeb
+                    localStorage.setItem(CONFIG.TIMER_RESTART_KEY, 'true');
 
-                    // Xóa bộ đếm
+                    // 2. Xóa cờ reset celeb (để phòng ngừa)
+                    localStorage.removeItem(CONFIG.CELEB_RESTART_KEY);
+
+                    // 3. Xóa Storage Key (để nó chạy lại từ đầu)
+                    sessionStorage.removeItem(CONFIG.STORAGE_KEY);
+
+                    // 4. Xóa bộ đếm lỗi
                     sessionStorage.removeItem(CONFIG.CONNECTION_LOST_COUNTER_KEY);
 
-                    // Tải lại trang (KHÔNG clear state, KHÔNG clear timer)
+                    // 5. Xóa cả timer đang chạy (nếu có)
+                    sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
+                    // ------------------------------------------
+
+                    // Tải lại trang
                     location.reload();
                 }
+                // ========================================
+                // ===== KẾT THÚC SỬA LỖI =====
+                // ========================================
             }
             // *** HẾT MỚI (Task 14) ***
 
