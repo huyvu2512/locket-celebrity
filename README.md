@@ -16,7 +16,7 @@
 ## 📛 Lưu ý: 
 1. **Nếu đã cài đặt nhưng vào Web công cụ không hiện nghĩa là bạn chưa cấp hết quyền cho Tampermonkey**:
   
-    * Sao chép và dán vào trình duyệt: **chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo**
+    * Sao chép và dán vào trình duyệt: **chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo** hoặc ấn chuột phải vào tampermonkey và chọn ** Quản lý tiện ích**
     * Kéo xuống và tìm **Allow User Scripts** hay **Cho phép tập lệnh của người dùng** và **Cho phép ở chế độ ẩn danh** rồi cấp quyền cho nó là được
 
 
