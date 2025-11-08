@@ -1,25 +1,20 @@
-## 📥 Hướng dẫn cài đặt
-1. **Cài đặt Tampermonkey**:
-   - [Tải Tampermonkey cho PC](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
-   - [Tải Tampermonkey cho Mobile (phiên bản cũ)](https://chromewebstore.google.com/detail/tampermonkey-legacy/lcmhijbkigalmkeommnijlpobloojgfn)
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-2. **Cài đặt script Locket Celebrity**:
-   - Nhấn vào nút dưới đây để tự động cài đặt script vào Tampermonkey:
-   
-     [![Cài đặt Script](https://img.shields.io/badge/Cài%20đặt-Script-blue?style=for-the-badge)](https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/script/tampermonkey.user.js)
+# Run and deploy your AI Studio app
 
-3.  **Truy cập Locket:**
-    * Truy cập [Locketbinhake](https://locket.binhake.dev/), bảng điều khiển sẽ xuất hiện ở góc dưới bên trái.
-    * Key: **2025**
-    * Nhấn "Bắt đầu Auto Celeb" để script tự động chuyển về trang Celeb và chạy.
-      
-## 📛 Lưu ý: 
-1. **Nếu đã cài đặt nhưng vào Web công cụ không hiện nghĩa là bạn chưa cấp hết quyền cho Tampermonkey**:
-  
-    * Sao chép và dán vào trình duyệt: **chrome://extensions/?id=dhdgffkkebhmkfjojejmpbldmpobfkfo** hoặc ấn chuột phải vào tampermonkey và chọn **Quản lý tiện ích**
-    * Kéo xuống và tìm **Allow User Scripts** hay **Cho phép tập lệnh của người dùng** và **Cho phép ở chế độ ẩn danh** rồi cấp quyền cho nó là được
+This contains everything you need to run your app locally.
+
+View your app in AI Studio: https://ai.studio/apps/drive/1FnT0ESSuHARfLrD-XyMuKfdnvKbCGuyS
+
+## Run Locally
+
+**Prerequisites:**  Node.js
 
 
-2. **Trường hợp treo bằng VPS không phải Sever VN**:
-
-    * Ai mà treo bằng VPS không phải Sever VN thì nên add thêm extension [Urban VPN Proxy](https://chromewebstore.google.com/detail/urban-vpn-proxy/eppiocemhmnlbhjplcgkofciiegomcon?hl=vi) sau đó bật VPN Việt Nam lên để tránh bị treo web và xác minh không phải robot nhé.
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`

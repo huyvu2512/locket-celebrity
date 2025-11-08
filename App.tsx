@@ -22,7 +22,7 @@ const LocketCelebrityPage: React.FC = () => {
   const [scriptInfo, setScriptInfo] = useState<ScriptInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const SCRIPT_URL = 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js';
+  const SCRIPT_URL = 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/script/tampermonkey.user.js';
 
   useEffect(() => {
     const fetchScriptInfo = async () => {
