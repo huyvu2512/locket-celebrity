@@ -1,21 +1,20 @@
-# Auto Locket Celeb
+<div align="center">
+<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+</div>
 
-Script tự động hóa các tác vụ cho Locket.
+# Run and deploy your AI Studio app
 
-## ✨ Tính năng chính
+This contains everything you need to run your app locally.
 
-Dựa trên các phiên bản đã phát hành, script này bao gồm các công dụng:
+View your app in AI Studio: https://ai.studio/apps/drive/1FnT0ESSuHARfLrD-XyMuKfdnvKbCGuyS
 
-* **Tự động quét Celeb:** Tự động quét và chạy toàn bộ danh sách Celeb.
-* **Tìm kiếm tự động:** Tự động tìm kiếm và thêm Celeb mới bằng username.
-* **Hẹn giờ:** Tự động khởi động lại chu trình chạy.
-* **Giao diện nâng cấp:** Giao diện người dùng (UI) trực quan và thân thiện.
-* **Điều hướng thông minh:** Tự động chuyển về trang Celebrity Tool từ bất kỳ trang nào khác.
-* **Bảo mật:** Yêu cầu Key kích hoạt để mở khóa và sử dụng script.
+## Run Locally
 
-## 📥 Hướng dẫn cài đặt
+**Prerequisites:**  Node.js
 
-Để xem hướng dẫn cài đặt chi tiết cho **PC (Chrome/Firefox)**, **iOS (Stay App)**, và **Android (Kiwi Browser)**, vui lòng truy cập trang web chính thức của dự án:
 
-➡️ **Truy cập trang web để cài đặt:**
-### [https://locket-celebrity.vercel.app/](https://locket-celebrity.vercel.app/)
+1. Install dependencies:
+   `npm install`
+2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+3. Run the app:
+   `npm run dev`
