@@ -121,7 +121,7 @@ const LocketCelebrityPage: React.FC = () => {
             <ol className="list-decimal list-inside space-y-3 text-red-violet-400/80 pl-2">
               <li>
                 <strong>Cài đặt Ứng dụng Quản lý Script:</strong> Tải một ứng dụng 
-                <a href="https://apps.apple.com/vn/app/stay-for-safari/id1591620171?l=vi" target="_blank" rel="noopener noreferrer" className="text-red-violet-300 hover:underline mx-1">Stay</a>
+                <a href="https://apps.apple.com/vn/app/stay-for-safari/id1591620171?l=vi" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline mx-1">Stay</a>
                 từ App Store để quản lý script trên Safari.
               </li>
               <li>
