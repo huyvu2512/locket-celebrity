@@ -25,7 +25,7 @@
 
         // --- Link Update & Version ---
         SCRIPT_VERSION: 'v1.2',
-        UPDATE_URL: 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/tampermonkey.user.js'
+        UPDATE_URL: 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/script/tampermonkey.user.js'
     };
 
     // *** SỬA ĐỔI: Danh sách Celeb được trích xuất (Đã cập nhật) ***
@@ -2342,3 +2342,4 @@
 
     })();
 })();
+
