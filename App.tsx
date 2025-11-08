@@ -85,7 +85,7 @@ const LocketCelebrityPage: React.FC = () => {
                <li>
                 <strong>Sử dụng:</strong> Mở Web 
                 <a href="https://locket.binhake.dev/" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline mx-1">Locketbinhake</a>
-                trên web, script sẽ tự động được kích hoạt để bạn có thể sử dụng các tính năng mới.
+                , script sẽ tự động được kích hoạt để bạn có thể sử dụng các tính năng mới.
               </li>
               <li>
                 <strong>Key: </strong>
@@ -128,12 +128,15 @@ const LocketCelebrityPage: React.FC = () => {
                 <strong>Kích hoạt:</strong> Vào Cài đặt ⮕ Safari ⮕ Tiện ích mở rộng ⮕ Bật Stay (và cấp quyền).
               </li>
               <li>
-                <strong>Thêm Script:</strong> Ấn vào nút "Sao Chép" ở trên. Mở app Stay ⮕ ấn dấu cộng (+) ⮕ chọn "Link" ⮕ Dán liên kết vừa chép vào ⮕ "Continue".
+                <strong>Lấy liên kết Script:</strong> Ấn nút "Cài đặt Script" sẽ trỏ ra 1 đường link, sao chép toàn bộ đường link đó.
+              </li>
+              <li>
+                <strong>Thêm Script:</strong> Mở app Stay ⮕ ấn dấu cộng (+) ⮕ chọn "Link" ⮕ Dán liên kết vừa sao chép vào ⮕ "Continue".
               </li>
                <li>
                 <strong>Sử dụng:</strong> Mở Web 
                 <a href="https://locket.binhake.dev/" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline mx-1">Locketbinhake</a>
-                trên web, script sẽ tự động được kích hoạt để bạn có thể sử dụng các tính năng mới.
+                , script sẽ tự động được kích hoạt để bạn có thể sử dụng các tính năng mới.
               </li>
               <li>
                 <strong>Key: </strong>
@@ -182,7 +185,7 @@ const LocketCelebrityPage: React.FC = () => {
                 <strong>Xác nhận cài đặt:</strong>  Trong tab Tampermonkey, hãy xem lại thông tin và nhấn nút "Install" để hoàn tất. 
               </li>
               <li>
-                <strong>Sử dụng:</strong> Script sẽ hoạt động khi bạn truy cập 
+                <strong>Sử dụng:</strong> Script sẽ hoạt động khi bạn truy cập Web
                 <a href="https://locket.binhake.dev/" target="_blank" rel="noopener noreferrer" className="text-blue-600 font-semibold hover:underline mx-1">Locketbinhake</a>
                 bằng trình duyệt đó.
               </li>
