@@ -1,46 +1,52 @@
+// ==UserScript==
+// @name         Auto Locket Celeb (v1.9 UI Fix)
+// @namespace    http://tampermonkey.net/
+// @version      1.9
+// @description  Sửa lỗi UI, di chuyển nút toggle sang phải và tăng kích thước popup.
+// @match        https://locket.binhake.dev/*
+// @run-at       document-idle
+// @grant        GM_xmlhttpRequest
+// @connect      open.oapi.vn
+// @icon         https://i.imgur.com/AM2f24N.png
+// ==/UserScript==
+
 (function() {
     'use strict';
 
+    // --- CẤU HÌNH SCRIPT ---
     const CONFIG = {
-        STORAGE_KEY: 'autoCelebState',
-        LOG_STORAGE_KEY: 'autoCelebScriptLog_v1',
+        STORAGE_KEY: 'autoCelebState_v2',
+        LOG_STORAGE_KEY: 'autoCelebScriptLog_v2',
         TIMER_CONFIG_KEY: 'autoCelebTimerConfig_v2.9',
         TIMER_RESTART_KEY: 'autoCelebTimerRestart',
         TIMER_END_TIME_KEY: 'autoCelebTimerEndTime',
         TARGET_PAGE: 'https://locket.binhake.dev/celebrity.html',
-        FRIENDS_PAGE: 'https://locket.binhake.dev/friends.html', // <-- MỚI: Thêm trang tool bạn bè
+        FRIENDS_PAGE: 'https://locket.binhake.dev/friends.html',
         LOGO_URL: 'https://i.imgur.com/AM2f24N.png',
 
-        // --- MỚI (Task 14): Keys cho việc reset celeb lỗi ---
         CELEB_RESTART_KEY: 'autoCelebCelebRestart',
         CONNECTION_LOST_COUNTER_KEY: 'autoCelebConnectionLostCounter',
         CONNECTION_LOST_TRIGGER_STRING: "The connection was suddenly lost. Reconnecting after 5 second...",
         CONNECTION_LOST_MAX_RETRIES: 5,
-        // ---------------------------------------------------
 
-        // --- Cài đặt Key Kích Hoạt ---
-        SECRET_KEY: '2025', // <-- Key của bạn
-        KEY_STORAGE_KEY: 'autoCelebKeyValidated_v1', // <-- Tên để lưu key
+        SECRET_KEY: '2025',
+        KEY_STORAGE_KEY: 'autoCelebKeyValidated_v1',
         MESSENGER_LINK: 'https://www.messenger.com/c/655145337208323/',
 
-        // --- Link Update & Version ---
-        SCRIPT_VERSION: 'v1.2',
+        SCRIPT_VERSION: 'v1.9', // <--- CẬP NHẬT VERSION
         UPDATE_URL: 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/script/tampermonkey.user.js'
     };
 
-    // *** SỬA ĐỔI: Danh sách Celeb được trích xuất (Đã cập nhật) ***
     const CELEB_LIST = [
         { name: 'Locket HQ 💛', uid: 'locket.hq' },
         { name: 'SZA & MoRuf Backstage Test', uid: 'szamoruf_1' }
     ];
 
+    // --- BIẾN TOÀN CỤC ---
     let activeTimerId = null;
     let currentTimerConfig = { enabled: false, minutes: 60 };
     let currentTimerTotalDuration = 0;
-
     let webLogObserver = null;
-
-    // --- MỚI: Biến trạng thái cho Tool Bạn bè ---
     let isFriendSearchRunning = false;
     let friendSearchLoopId = null;
 
@@ -54,46 +60,33 @@
     }
 
     /**
-     * Ghi log (ĐÃ SỬA - Thêm bộ lọc "Vui lòng nhập...")
+     * HÀM GHI LOG
      */
     function log(message, type = 'log') {
-        // 1. Luôn ghi ra Console
         const styles = { log: 'color: inherit;', info: 'color: #3b82f6;', success: 'color: #22c55e;', error: 'color: #ef4444; font-weight: bold;', rocket: '', timer: 'color: #f59e0b;', warn: 'color: #f59e0b;' };
         const prefix = type === 'rocket' ? '🚀' : (type === 'success' ? '✅' : (type === 'info' ? 'ℹ️' : (type === 'timer' ? '⏱️' : (type === 'warn' ? '⚠️' : '➡️'))));
         console.log(`%c[Auto Locket Celeb]%c ${prefix} ${message}`, 'color: #8b5cf6; font-weight: bold;', styles[type] || styles.log);
 
         try {
-            const logTextarea = document.getElementById('auto-celeb-script-log');
+            const logTextarea = document.getElementById('dashboard-script-log');
 
-            // ===== BẮT ĐẦU LỌC LOG (Cho đỡ rối UI) =====
             const filteredMessages = [
-                "Thời gian hẹn giờ tối thiểu",
-                "Tăng thời gian hẹn giờ lên",
-                "Giảm thời gian hẹn giờ xuống",
-                "Đã TIẾP TỤC đồng hồ đếm ngược",
-                "Hẹn giờ ĐÃ TẮT",
-                "Hẹn giờ ĐÃ BẬT",
-                "Phát hiện popup thông báo cũ. Tự động đóng...",
-                'Phát hiện "Thông Báo Quan Trọng". Tự động đóng...',
-                'Bắt đầu theo dõi nhật ký của',
-                'Tiếp tục xử lý danh sách celeb...',
-                'Vui lòng nhập username để bắt đầu lặp.' // <-- MỚI: Thêm dòng này để lọc
+                "Thời gian hẹn giờ tối thiểu", "Tăng thời gian hẹn giờ lên", "Giảm thời gian hẹn giờ xuống",
+                "Đã TIẾP TỤC đồng hồ đếm ngược", "Hẹn giờ ĐÃ TẮT", "Hẹn giờ ĐÃ BẬT",
+                "Phát hiện popup thông báo cũ. Tự động đóng...", 'Phát hiện "Thông Báo Quan Trọng". Tự động đóng...',
+                'Bắt đầu theo dõi nhật ký của', 'Tiếp tục xử lý danh sách celeb...', 'Vui lòng nhập username để bắt đầu lặp.'
             ];
 
             const isFiltered = filteredMessages.some(filter => message.includes(filter));
-            // ===== KẾT THÚC LỌC LOG =====
-
             const timestamp = getTimestamp();
             const logMessage = `${timestamp} ${message}\n`;
 
-            // 1. Ghi ra Textarea (nếu không bị lọc)
             if (logTextarea && !isFiltered) {
                 logTextarea.value += logMessage;
                 logTextarea.scrollTop = logTextarea.scrollHeight;
             }
 
-            // 2. MỚI: Ghi vào Session Storage (nếu không bị lọc)
-            // Chỉ lưu log vào storage nếu quá trình Celeb đang diễn ra
+            // Lưu log vào session storage
             const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
             const needsTimerRestart = localStorage.getItem(CONFIG.TIMER_RESTART_KEY) === 'true';
             if ((state.isRunning || needsTimerRestart) && !isFiltered) {
@@ -108,19 +101,18 @@
     }
 
     /**
-     * MỚI (Task 2): Tải log đã lưu từ sessionStorage vào textarea
+     * TẢI LOG ĐÃ LƯU
      */
     function loadPersistentLog() {
-        // Chỉ chạy ở trang chính (hoặc trang friend)
-        if (window.location.href !== CONFIG.TARGET_PAGE && window.location.href !== CONFIG.FRIENDS_PAGE) return;
+        if (window.location.href !== CONFIG.TARGET_PAGE) return;
 
         try {
             const storedLog = sessionStorage.getItem(CONFIG.LOG_STORAGE_KEY);
-            const logTextarea = document.getElementById('auto-celeb-script-log');
+            const logTextarea = document.getElementById('dashboard-script-log');
 
             if (logTextarea && storedLog) {
-                logTextarea.value = storedLog; // Nạp toàn bộ log cũ
-                logTextarea.scrollTop = logTextarea.scrollHeight; // Cuộn xuống dưới
+                logTextarea.value = storedLog;
+                logTextarea.scrollTop = logTextarea.scrollHeight;
             }
         } catch (e) {
             console.error('[Auto Locket Celeb] Lỗi khi tải log đã lưu: ', e);
@@ -151,378 +143,462 @@
     }
 
     /**
-     * Tiêm CSS (ĐÃ CẬP NHẬT - Sửa CSS Donate Input)
+     * TIÊM CSS (ĐÃ CẬP NHẬT v1.9)
+     * - Tăng chiều rộng popup
+     * - Di chuyển toggle sang phải
      */
     function injectNewStyles() {
         const style = document.createElement('style');
         style.textContent = `
-            /* ---------------------------
-                PHONG CÁCH CHUNG
-            --------------------------- */
-
+            /* ... (CSS Chung, Header, Tabs, Key Wall không đổi) ... */
             #auto-celeb-main-container {
-                position: fixed;
-                z-index: 9999;
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
-                width: 350px;
-                font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
-                background: rgba(30,30,30,0.65);
-                backdrop-filter: blur(15px);
-                border: 1px solid rgba(255,255,255,0.15);
-                box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-                border-radius: 16px;
-                padding: 12px;
-                top: 90px;
-                left: 24px;
-                right: auto;
-                bottom: auto;
-                max-height: 90vh;
-                overflow: hidden;
+                position: fixed; z-index: 9999; display: flex; flex-direction: column; gap: 12px;
+                width: 350px; font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
+                background: rgba(30,30,30,0.65); backdrop-filter: blur(15px);
+                border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+                border-radius: 16px; padding: 12px; top: 90px; left: 24px; right: auto; bottom: auto;
+                max-height: 90vh; overflow: hidden;
                 transition: max-height 0.3s ease, padding-top 0.3s ease, padding-bottom 0.3s ease;
             }
-
             #auto-celeb-popup-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                color: white;
-                font-size: 18px;
-                font-weight: 700;
-                border-bottom: 1px solid rgba(255,255,255,0.2);
-                padding-bottom: 8px;
-                margin-bottom: 4px;
-                cursor: default;
+                display: flex; justify-content: space-between; align-items: center;
+                color: white; font-size: 18px; font-weight: 700;
+                border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px;
+                margin-bottom: 4px; cursor: default;
             }
-
             #auto-celeb-popup-title {
-                cursor: pointer;
-                user-select: none;
-                flex-grow: 1;
-                display: flex;
-                align-items: center;
-                gap: 8px;
+                cursor: pointer; user-select: none; flex-grow: 1; display: flex;
+                align-items: center; gap: 8px;
             }
-
-            #auto-celeb-title-icon {
-                width: 22px;
-                height: 22px;
-                border-radius: 5px;
-            }
-
+            #auto-celeb-title-icon { width: 22px; height: 22px; border-radius: 5px; }
             #auto-celeb-collapse-toggle {
-                font-size: 20px;
-                font-weight: bold;
-                cursor: pointer;
-                padding: 0 5px;
+                font-size: 20px; font-weight: bold; cursor: pointer; padding: 0 5px;
                 transition: transform 0.3s ease;
             }
-            #auto-celeb-collapse-toggle:hover {
-                opacity: 0.8;
-            }
-
+            #auto-celeb-collapse-toggle:hover { opacity: 0.8; }
             #auto-celeb-main-container.collapsed {
-                max-height: 48px;
-                padding-top: 12px;
-                padding-bottom: 12px;
-                gap: 0;
+                max-height: 48px; padding-top: 12px; padding-bottom: 12px; gap: 0;
             }
             #auto-celeb-main-container.collapsed #auto-celeb-popup-header {
-                margin-bottom: 0;
-                border-bottom: none;
-                padding-bottom: 0;
+                margin-bottom: 0; border-bottom: none; padding-bottom: 0;
             }
-            #auto-celeb-main-container.collapsed #auto-celeb-collapse-toggle {
-                transform: rotate(-90deg);
+            #auto-celeb-main-container.collapsed #auto-celeb-collapse-toggle { transform: rotate(-90deg); }
+            #auto-celeb-main-container.collapsed > *:not(#auto-celeb-popup-header) { display: none; }
+            #auto-celeb-tab-nav {
+                display: flex; justify-content: space-around; width: 100%;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                margin-bottom: 12px; margin-top: -8px;
             }
-            #auto-celeb-main-container.collapsed > *:not(#auto-celeb-popup-header) {
-                display: none;
+            .nav-tab {
+                flex: 1; text-align: center; padding: 8px 0; color: #aaa;
+                font-weight: 600; font-size: 15px; text-decoration: none; cursor: pointer;
+                transition: color 0.2s ease; border-bottom: 3px solid transparent;
+                position: relative; top: 1px;
             }
+            .nav-tab:not(.active):hover {
+                color: #aaa !important; text-decoration: none !important;
+                border-bottom-color: transparent !important;
+            }
+            .nav-tab.active { color: #fff; border-bottom-color: #8b5cf6; }
 
-            /* ===== MỚI: Trạng thái Khóa (Locked) ===== */
-            #auto-celeb-main-container.locked #auto-celeb-control-button,
-            #auto-celeb-main-container.locked #auto-celeb-timer-ui,
-            #auto-celeb-main-container.locked #auto-celeb-log-wrapper,
-            #auto-celeb-main-container.locked #auto-celeb-redirect-button,
-            #auto-celeb-main-container.locked #auto-friend-tool-wrapper { /* <-- MỚI */
-                display: none;
-            }
-            #auto-celeb-main-container:not(.locked) #auto-celeb-key-wall {
-                display: none;
-            }
-
-            /* ===== MỚI: Giao diện Key Wall ===== */
+            #auto-celeb-main-container.locked #auto-celeb-tab-nav,
+            #auto-celeb-main-container.locked #auto-celeb-open-dashboard-btn, /* THAY ĐỔI */
+            #auto-celeb-main-container.locked #auto-celeb-redirect-buttons,
+            #auto-celeb-main-container.locked #auto-friend-tool-wrapper { display: none; }
+            #auto-celeb-main-container:not(.locked) #auto-celeb-key-wall { display: none; }
             #auto-celeb-key-wall {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 15px;
-                padding: 10px 0;
+                display: flex; flex-direction: column; align-items: center; gap: 15px; padding: 10px 0;
             }
-            #key-wall-icon {
-                width: 64px;
-                height: 64px;
-                opacity: 0.9;
-                border-radius: 12px;
-            }
-            #key-wall-title {
-                font-size: 22px;
-                font-weight: 700;
-                color: white;
-                margin: 0;
-            }
-            #key-wall-message {
-                font-size: 14px;
-                color: #e0e0e0;
-                text-align: center;
-                line-height: 1.5;
-                margin: 0;
-            }
+            #key-wall-icon { width: 64px; height: 64px; opacity: 0.9; border-radius: 12px; }
+            #key-wall-title { font-size: 22px; font-weight: 700; color: white; margin: 0; }
+            #key-wall-message { font-size: 14px; color: #e0e0e0; text-align: center; line-height: 1.5; margin: 0; }
             #btn-get-key {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                width: 100%;
-                padding: 12px 14px;
-                border-radius: 14px;
-                border: none;
-                color: white;
-                font-weight: 600;
-                font-size: 16px;
-                cursor: pointer;
-                background: linear-gradient(135deg, #00B2FF, #006AFF); /* Messenger Blue */
-                box-shadow: 0 6px 20px rgba(0, 150, 255, 0.4);
-                transition: all 0.25s ease;
-                justify-content: center;
-                text-decoration: none;
+                display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px;
+                border-radius: 14px; border: none; color: white; font-weight: 600; font-size: 16px;
+                cursor: pointer; background: linear-gradient(135deg, #00B2FF, #006AFF);
+                box-shadow: 0 6px 20px rgba(0, 150, 255, 0.4); transition: all 0.25s ease;
+                justify-content: center; text-decoration: none;
             }
-            #btn-get-key:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 25px rgba(0, 150, 255, 0.55);
-            }
+            #btn-get-key:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 150, 255, 0.55); }
             #key-input-field {
-                width: 100%;
-                background: rgba(0,0,0,0.3);
-                border: 1px solid rgba(255,255,255,0.2);
-                border-radius: 10px;
-                padding: 12px 15px;
-                font-size: 16px;
-                color: white;
-                font-family: 'Inter', sans-serif;
-                box-sizing: border-box;
+                width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 10px; padding: 12px 15px; font-size: 16px; color: white;
+                font-family: 'Inter', sans-serif; box-sizing: border-box;
             }
-            #key-input-field::placeholder {
-                color: #888;
-            }
+            #key-input-field::placeholder { color: #888; }
             #btn-submit-key {
-                width: 100%;
-                padding: 12px 14px;
-                border-radius: 14px;
-                border: none;
-                color: white;
-                font-weight: 600;
-                font-size: 16px;
-                cursor: pointer;
-                background: linear-gradient(135deg, #8b5cf6, #6d28d9); /* Purple */
+                width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
+                color: white; font-weight: 600; font-size: 16px; cursor: pointer;
+                background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+                box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4); transition: all 0.25s ease;
+            }
+            #btn-submit-key:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.55); }
+            #key-error-message {
+                font-size: 14px; color: #ef4444; font-weight: 600; margin: -5px 0 0 0; display: none;
+            }
+            @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+            .shake { animation: shake 0.3s ease; border-color: #ef4444 !important; }
+
+            /* --- Nút Mở Bảng Điều Khiển (UI Chính) --- */
+            #auto-celeb-open-dashboard-btn {
+                width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
+                color: white; font-weight: 600; font-size: 16px; cursor: pointer;
+                background: linear-gradient(135deg, #8b5cf6, #6d28d9);
                 box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
                 transition: all 0.25s ease;
             }
-            #btn-submit-key:hover {
+            #auto-celeb-open-dashboard-btn:hover {
                 transform: translateY(-2px);
                 box-shadow: 0 8px 25px rgba(139, 92, 246, 0.55);
             }
-            #key-error-message {
-                font-size: 14px;
-                color: #ef4444; /* red-500 */
+
+            /* ... (CSS cho Tool Bạn bè, Nút Redirect không đổi) ... */
+            #auto-celeb-redirect-buttons { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; }
+            .auto-celeb-redirect-button {
+                width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
+                color: white; font-weight: 600; font-size: 16px; cursor: pointer;
+                background: linear-gradient(135deg, #0ea5e9, #0284c7);
+                box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4); transition: all 0.25s ease;
+                text-decoration: none; text-align: center; display: block; box-sizing: border-box;
+            }
+            .auto-celeb-redirect-button:hover {
+                transform: translateY(-2px); box-shadow: 0 8px 25px rgba(14, 165, 233, 0.55); filter: brightness(1.1);
+            }
+            #auto-friend-tool-wrapper { display: flex; flex-direction: column; gap: 0; }
+            #friend-tool-title { font-size: 28px; font-weight: 700; color: #ef4444; text-align: center; margin: 0; margin-bottom: 5px; }
+            #friend-tool-note { font-size: 0.9em; color: #ccc; text-align: center; margin: 0; margin-bottom: 15px; font-weight: 500; }
+            #friend-celeb-select {
+                width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 10px; padding: 10px 12px; font-size: 15px; color: white;
+                font-family: 'Inter', sans-serif; box-sizing: border-box; margin-bottom: 12px;
+            }
+            #friend-celeb-select option { background: #333; color: white; padding: 5px; }
+            #friend-celeb-select:focus { outline: none; border-color: #0ea5e9; }
+            #auto-friend-start-button {
+                width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
+                color: white; font-weight: 600; font-size: 16px; cursor: pointer;
+                background: linear-gradient(135deg, #0ea5e9, #0284c7);
+                box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4); transition: all 0.25s ease;
+            }
+            #auto-friend-start-button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(14, 165, 233, 0.55); }
+            #auto-friend-start-button.running {
+                background: linear-gradient(135deg, #ef4444, #dc2626);
+                box-shadow: 0 6px 20px rgba(239,68,68,0.4);
+            }
+
+            /* --- Giao diện Modals (Chung) --- */
+            #auto-celeb-modal-overlay {
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 10001;
+            }
+            .auto-celeb-modal {
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: #2c2c2e; color: white; border-radius: 14px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 10002;
+                width: 300px; padding: 20px; padding-top: 40px; text-align: center;
+                border: 1px solid rgba(255,255,255,0.15);
+            }
+            .auto-celeb-modal h3 { margin-top: 0; margin-bottom: 15px; }
+            .auto-celeb-modal p { text-align: center; margin-bottom: 15px; }
+            .auto-celeb-modal-close {
+                position: absolute; top: 10px; right: 15px; font-size: 28px;
+                font-weight: bold; color: #aaa; cursor: pointer; line-height: 1;
+            }
+            .auto-celeb-modal-close:hover { color: white; }
+            .modal-button {
+                display: inline-block; background-color: #0a84ff; color: white;
+                padding: 10px 20px; border-radius: 8px; text-decoration: none;
+                font-weight: 600; margin-top: 10px; border: none;
+                font-family: inherit; font-size: 1em; cursor: pointer;
+            }
+            .modal-button:hover { background-color: #38a0ff; }
+
+            /* ... (CSS cho Modal Update, Donate, Bug không đổi) ... */
+            #modal-update p.update-text { font-size: 16px; line-height: 1.5; text-align: center; margin-bottom: 0; }
+            #modal-update .modal-update-version-display {
+                display: flex; align-items: center; justify-content: center; gap: 10px;
+                margin-bottom: 15px; padding: 10px 15px; background: rgba(0,0,0,0.25);
+                border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+            }
+            #modal-update .modal-update-logo { width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; }
+            #modal-update .modal-update-title-text { font-size: 1.15em; font-weight: 700; color: #ef4444; }
+            #modal-update .modal-button-group { display: flex; gap: 10px; margin-top: 20px; }
+            #modal-update .modal-button-group .modal-button {
+                flex: 1; margin-top: 0; text-decoration: none; padding: 10px;
+                font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+            }
+            #btn-go-to-update { background-color: #0a84ff; }
+            #btn-go-to-update:hover { background-color: #38a0ff; }
+            #btn-copy-update-link { background-color: #555; }
+            #btn-copy-update-link:hover { background-color: #777; }
+            #btn-copy-update-link.copied { background-color: #22c55e; cursor: default; }
+            #modal-donate h3 { margin-bottom: 5px; }
+            #modal-donate p.donate-lead { margin-bottom: 15px; }
+            #modal-donate p.donate-thankyou { font-size: 0.9em; color: #ccc; margin-top: 0; margin-bottom: 20px; }
+            .donate-input-wrapper { position: relative; margin-bottom: 15px; }
+            #donate-amount-input {
+                width: 100%; padding: 12px; padding-right: 45px; border-radius: 8px;
+                border: 1px solid #777; background: #333; color: #3b82f6;
+                font-weight: 600; font-size: 16px; box-sizing: border-box; margin-bottom: 0;
+            }
+            .donate-suffix {
+                position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+                color: #aaa; font-weight: 600; pointer-events: none; display: none;
+            }
+            .donate-input-wrapper input:not(:placeholder-shown) ~ .donate-suffix { display: block; }
+            #donate-amount-input::-webkit-outer-spin-button,
+            #donate-amount-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+            #donate-amount-input { -moz-appearance: textfield; }
+            #btn-generate-qr {
+                background: linear-gradient(135deg, #22c55e, #16a34a); width: 100%;
+                margin-top: 0; font-size: 16px; font-weight: 600; padding: 12px;
+                transition: all 0.2s ease;
+            }
+            #btn-generate-qr:hover { filter: brightness(1.15); }
+            #donate-qr-result {
+                margin-top: 15px; min-height: 250px; display: none; align-items: center;
+                justify-content: center; background: #fff; border-radius: 10px; padding: 10px;
+            }
+            #donate-qr-image { max-width: 100%; max-height: 250px; display: none; }
+            #donate-loading-text { color: #000; font-size: 16px; font-weight: 600; display: none; }
+            #donate-error-message { color: #ef4444; font-size: 14px; margin-top: 10px; font-weight: 600; display: none; }
+
+
+            /* --- CSS CHO BẢNG ĐIỀU KHIỂN (DASHBOARD MODAL v1.9) --- */
+
+            /* CSS chung cho Toggle Switch (giống của Timer) */
+            .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+            .toggle-switch { position: relative; display: inline-block; width: 50px; height: 30px; flex-shrink: 0; }
+            .toggle-switch-label { display: block; width: 100%; height: 100%; background-color: #8e8e93; border-radius: 15px; cursor: pointer; transition: background-color 0.2s ease; }
+            .toggle-switch-handle { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.2s ease; }
+            .toggle-switch-input:checked + .toggle-switch-label { background-color: #34c759; }
+            .toggle-switch-input:checked + .toggle-switch-label .toggle-switch-handle { transform: translateX(20px); }
+
+
+            #celeb-dashboard-modal {
+                width: 900px; /* <--- THAY ĐỔI: Tăng chiều rộng */
+                max-width: 90vw;
+                text-align: left;
+                background: #232325;
+            }
+
+            #modal-dashboard-layout {
+                display: flex;
+                gap: 20px;
+                margin-top: -15px;
+            }
+
+            /* Cột trái: Danh sách Celeb */
+            #modal-celeb-list-wrapper {
+                flex: 1.5; /* <--- THAY ĐỔI: Tăng tỷ lệ */
+                border-right: 1px solid #444;
+                padding-right: 20px;
+                min-height: 450px;
+                max-height: 60vh;
+                display: flex;
+                flex-direction: column;
+            }
+            #modal-celeb-list-wrapper h3 {
+                color: white;
+                font-weight: 700;
+                margin-bottom: 15px;
+                flex-shrink: 0;
+            }
+            /* Hàng "Chọn tất cả" (v1.9) */
+            #celeb-select-all-label { /* Đây là <div> wrapper */
+                display: flex;
+                align-items: center;
+                justify-content: space-between; /* Đẩy text sang trái, toggle sang phải */
+                padding: 10px 12px;
+                background: rgba(0,0,0,0.25);
+                border: 1px solid rgba(255,255,255,0.1);
+                border-radius: 8px;
+                margin-bottom: 10px;
+                cursor: pointer;
+                user-select: none;
+                transition: background-color 0.2s;
+                flex-shrink: 0;
+            }
+            #celeb-select-all-label:hover { background: rgba(0,0,0,0.4); }
+            #celeb-select-all-text {
+                font-size: 1.1em;
+                vertical-align: middle;
                 font-weight: 600;
-                margin: -5px 0 0 0;
-                display: none; /* Ẩn ban đầu */
-            }
-            @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                25% { transform: translateX(-5px); }
-                75% { transform: translateX(5px); }
-            }
-            .shake {
-                animation: shake 0.3s ease;
-                border-color: #ef4444 !important;
+                /* margin-left: 0; (Xóa margin) */
             }
 
-            /* --- HẾT Giao diện Key Wall --- */
+            #celeb-selection-list {
+                flex-grow: 1;
+                overflow-y: auto;
+                padding-right: 5px;
+            }
 
-            /* --- Giao diện Tool Celeb --- */
-            #auto-celeb-control-button {
+            /* --- CSS CHO DANH SÁCH CELEB (v1.9) --- */
+            .celeb-list-item-new {
+                display: flex;
+                align-items: center;
+                padding: 8px 5px;
+                border-radius: 8px;
+                margin-bottom: 8px;
+                cursor: pointer;
+                border: 1px solid transparent;
+                transition: background-color 0.2s;
+            }
+            .celeb-list-item-new:hover {
+                background-color: rgba(255, 255, 255, 0.05);
+            }
+            .celeb-list-item-new.selected {
+                background-color: rgba(139, 92, 246, 0.1);
+                border-color: rgba(139, 92, 246, 0.3);
+            }
+
+            /* Wrapper cho toggle switch của từng celeb item (v1.9) */
+            .celeb-item-toggle-wrapper {
+                /* order: 0; (Mặc định) */
+                margin-left: 10px; /* Khoảng cách với info */
+                padding: 0 5px;
+                flex-shrink: 0;
+            }
+
+            .celeb-list-profile-image {
+                position: relative;
+                margin-right: 12px;
+                flex-shrink: 0;
+            }
+            .celeb-list-profile-image img {
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                border: 3px solid #F0B90A;
+            }
+            .celeb-list-icon {
+                position: absolute;
+                bottom: 0;
+                right: 0;
+                background: #F0B90A;
+                color: #333;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid #232325;
+            }
+
+            .celeb-list-profile-info {
+                flex-grow: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 0;
+            }
+            .celeb-list-profile-name {
+                font-size: 16px;
+                font-weight: 600;
+                color: #fff;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .celeb-list-progress {
+                width: 100%;
+                height: 8px;
+                background: #555;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            .celeb-list-progress-bar {
+                height: 100%;
+                border-radius: 4px;
+                transition: width 0.3s ease;
+            }
+
+            .celeb-list-progress-text {
+                font-size: 12px;
+                color: #aaa;
+                font-weight: 500;
+            }
+            /* --- HẾT CSS MỚI --- */
+
+
+            /* Cột phải: Bảng điều khiển */
+            #modal-celeb-controls-wrapper {
+                flex: 1; /* <--- THAY ĐỔI: Tỷ lệ 1 */
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                min-height: 450px;
+            }
+
+            /* Nút Bắt đầu */
+            #dashboard-control-button {
                 width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
                 color: white; font-weight: 600; font-size: 16px; cursor: pointer;
                 background: linear-gradient(135deg, #22c55e, #16a34a);
                 box-shadow: 0 6px 20px rgba(34,197,94,0.4);
                 transition: all 0.25s ease;
             }
-            #auto-celeb-control-button:hover {
+            #dashboard-control-button:hover {
                 transform: translateY(-2px);
                 box-shadow: 0 8px 25px rgba(34,197,94,0.55);
                 filter: brightness(1.1);
             }
-            #auto-celeb-control-button.running {
+            #dashboard-control-button.running {
                 background: linear-gradient(135deg, #ef4444, #dc2626);
                 box-shadow: 0 6px 20px rgba(239,68,68,0.4);
             }
 
-            #auto-celeb-redirect-button {
-                width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
-                color: white; font-weight: 600; font-size: 16px; cursor: pointer;
-                background: linear-gradient(135deg, #0ea5e9, #0284c7);
-                box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
-                transition: all 0.25s ease;
-            }
-            #auto-celeb-redirect-button:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 25px rgba(14, 165, 233, 0.55);
-                filter: brightness(1.1);
-            }
-
-            #auto-celeb-timer-ui {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                padding: 10px 15px;
-                border-radius: 14px;
-                color: white;
-                font-weight: 600;
-                backdrop-filter: blur(15px);
+            /* UI Hẹn giờ */
+            #dashboard-timer-ui {
+                display: flex; justify-content: space-between; align-items: center;
+                padding: 10px 15px; border-radius: 14px; color: white; font-weight: 600;
                 background: rgba(30,30,30,0.45);
                 border: 1px solid rgba(255,255,255,0.15);
-                box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-                user-select: none;
-                transition: all 0.3s ease;
-                height: 65px;
+                user-select: none; transition: all 0.3s ease; height: 65px;
             }
-            #timer-display-group { display: flex; align-items: center; gap: 10px; }
-            #timer-display {
+            #dashboard-timer-ui #timer-display-group { display: flex; align-items: center; gap: 10px; }
+            #dashboard-timer-ui #timer-display {
                 font-family: 'JetBrains Mono', 'Inter', 'Segoe UI', sans-serif;
-                font-size: 32px;
-                font-weight: 500;
-                letter-spacing: -1px;
-                color: #e0e0e0;
-                flex-shrink: 0;
-                min-width: 80px;
-                transition: all 0.2s ease;
-                text-align: left;
+                font-size: 32px; font-weight: 500; letter-spacing: -1px; color: #e0e0e0;
+                flex-shrink: 0; min-width: 80px; transition: all 0.2s ease; text-align: left;
             }
-            #timer-adjust-buttons { display: flex; flex-direction: column; gap: 2px; }
-            .timer-adjust-btn {
-                background-color: rgba(255,255,255,0.1);
-                color: #fff;
-                font-size: 13px;
-                font-weight: 700;
-                padding: 2px 8px;
-                border-radius: 8px;
-                cursor: pointer;
+            #dashboard-timer-ui #timer-adjust-buttons { display: flex; flex-direction: column; gap: 2px; }
+            #dashboard-timer-ui .timer-adjust-btn {
+                background-color: rgba(255,255,255,0.1); color: #fff; font-size: 13px; font-weight: 700;
+                padding: 2px 8px; border-radius: 8px; cursor: pointer;
                 transition: background-color 0.2s ease, transform 0.1s ease;
-                min-width: 38px;
-                text-align: center;
+                min-width: 38px; text-align: center;
             }
-            .timer-adjust-btn:hover { background-color: rgba(255,255,255,0.2); transform: scale(1.05); }
-            .timer-adjust-btn:active { transform: scale(0.95); }
-            #timer-progress-ring { width: 40px; height: 40px; transform: rotate(-90deg); flex-shrink: 0; }
-            .timer-ring-bg, .timer-ring-fg { fill: transparent; stroke-width: 4; }
-            .timer-ring-bg { stroke: rgba(255, 255, 255, 0.15); }
-            .timer-ring-fg { stroke: #0ea5e9; stroke-linecap: round; transition: stroke-dashoffset 0.5s linear; }
-            #timer-toggle-switch { position: relative; display: inline-block; width: 50px; height: 30px; flex-shrink: 0; }
-            .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
-            .toggle-switch-label { display: block; width: 100%; height: 100%; background-color: #8e8e93; border-radius: 15px; cursor: pointer; transition: background-color 0.2s ease; }
-            .toggle-switch-handle { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.2s ease; }
-            #timer-toggle-input:checked + .toggle-switch-label { background-color: #34c759; }
-            #timer-toggle-input:checked + .toggle-switch-label .toggle-switch-handle { transform: translateX(20px); }
+            #dashboard-timer-ui .timer-adjust-btn:hover { background-color: rgba(255,255,255,0.2); transform: scale(1.05); }
+            #dashboard-timer-ui .timer-adjust-btn:active { transform: scale(0.95); }
+            #dashboard-timer-ui #timer-progress-ring { width: 40px; height: 40px; transform: rotate(-90deg); flex-shrink: 0; }
+            #dashboard-timer-ui .timer-ring-bg, #dashboard-timer-ui .timer-ring-fg { fill: transparent; stroke-width: 4; }
+            #dashboard-timer-ui .timer-ring-bg { stroke: rgba(255, 255, 255, 0.15); }
+            #dashboard-timer-ui .timer-ring-fg { stroke: #0ea5e9; stroke-linecap: round; transition: stroke-dashoffset 0.5s linear; }
 
-            #auto-celeb-timer-ui.timer-counting #timer-display-group { flex-grow: 1; justify-content: center; gap: 15px; }
-            #auto-celeb-timer-ui.timer-counting #timer-display { color: #0ea5e9; font-weight: 700; font-size: 38px; text-align: left; flex-grow: 0; }
-            #auto-celeb-timer-ui.timer-counting #timer-adjust-buttons,
-            #auto-celeb-timer-ui.timer-counting #timer-toggle-switch { display: none; }
-
-            #auto-celeb-timer-ui:not(.timer-counting) #timer-progress-ring { display: none; }
-            #auto-celeb-timer-ui:not(.timer-counting) #timer-display { font-size: 32px; text-align: left; flex-grow: 0; min-width: 90px; }
-            #auto-celeb-timer-ui:not(.timer-counting) #timer-adjust-buttons { display: flex; }
-            #auto-celeb-timer-ui:not(.timer-counting) #timer-toggle-switch { display: inline-block; }
-            /* --- Hết Tool Celeb --- */
-
-            /* ---------------------------
-                MỚI: Giao diện Tool Bạn bè (ĐÃ SỬA LẠI)
-            --------------------------- */
-            #auto-friend-tool-wrapper {
-                display: flex;
-                flex-direction: column;
-                gap: 0; /* Tắt gap, điều khiển bằng margin */
+            #dashboard-timer-ui #timer-toggle-switch {
+                position: relative; display: inline-block; width: 50px; height: 30px; flex-shrink: 0;
             }
 
-            /* 1. Style the new Title (giống modal h3) */
-            #friend-tool-title {
-                font-size: 28px;
-                font-weight: 700;
-                color: #ef4444; /* <-- SỬA MÀU ĐỎ */
-                text-align: center;
-                margin: 0;
-                margin-bottom: 5px; /* Giống #modal-donate h3 */
-            }
+            #dashboard-timer-ui.timer-counting #timer-display-group { flex-grow: 1; justify-content: center; gap: 15px; }
+            #dashboard-timer-ui.timer-counting #timer-display { color: #0ea5e9; font-weight: 700; font-size: 38px; text-align: left; flex-grow: 0; }
+            #dashboard-timer-ui.timer-counting #timer-adjust-buttons,
+            #dashboard-timer-ui.timer-counting #timer-toggle-switch { display: none; }
+            #dashboard-timer-ui:not(.timer-counting) #timer-progress-ring { display: none; }
+            #dashboard-timer-ui:not(.timer-counting) #timer-display { font-size: 32px; text-align: left; flex-grow: 0; min-width: 90px; }
+            #dashboard-timer-ui:not(.timer-counting) #timer-adjust-buttons { display: flex; }
+            #dashboard-timer-ui:not(.timer-counting) #timer-toggle-switch { display: inline-block; }
 
-            /* 2. Style the new Note (giống p.donate-thankyou) */
-            #friend-tool-note {
-                font-size: 0.9em; /* 14px */
-                color: #ccc;
-                text-align: center;
-                margin: 0;
-                margin-bottom: 15px; /* Giống #modal-donate p.donate-lead */
-                font-weight: 500;
+            /* Log Wrapper */
+            #dashboard-log-wrapper { display: flex; flex-direction: column; flex-grow: 1; min-height: 150px; }
+            #dashboard-log-wrapper label {
+                color: white; font-weight: bold; margin-bottom: 5px; display: block; user-select: none;
             }
-
-            /* 3. Style the input */
-            /* *** SỬA ĐỔI: CSS cho <select> *** */
-            #friend-celeb-select {
-                width: 100%;
-                background: rgba(0,0,0,0.3);
-                border: 1px solid rgba(255,255,255,0.2);
-                border-radius: 10px;
-                padding: 10px 12px;
-                font-size: 15px;
-                color: white;
-                font-family: 'Inter', sans-serif;
-                box-sizing: border-box;
-                margin-bottom: 12px; /* Thêm khoảng cách trước nút */
-            }
-            #friend-celeb-select option {
-                background: #333;
-                color: white;
-                padding: 5px;
-            }
-            #friend-celeb-select:focus {
-                outline: none;
-                border-color: #0ea5e9;
-            }
-            /* *** HẾT SỬA ĐỔI CSS *** */
-
-            /* 4. Button style (no change needed) */
-            #auto-friend-start-button {
-                width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
-                color: white; font-weight: 600; font-size: 16px; cursor: pointer;
-                background: linear-gradient(135deg, #0ea5e9, #0284c7); /* Blue */
-                box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
-                transition: all 0.25s ease;
-            }
-            #auto-friend-start-button:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 8px 25px rgba(14, 165, 233, 0.55);
-            }
-            #auto-friend-start-button.running {
-                background: linear-gradient(135deg, #ef4444, #dc2626); /* Red */
-                box-shadow: 0 6px 20px rgba(239,68,68,0.4);
-            }
-            /* --- Hết: Giao diện Tool Bạn bè --- */
-
-            /* --- Giao diện Log & Footer (Chung) --- */
-            #auto-celeb-log-wrapper { display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; min-height: 150px; }
-            #auto-celeb-log-wrapper label { color: white; font-weight: bold; text-align: center; margin-bottom: 5px; display: block; user-select: none; }
-            #auto-celeb-script-log {
+            #dashboard-script-log {
                 width: 100%; resize: none; margin: 0;
                 font-family: Consolas, 'Courier New', monospace;
                 font-size: 12px; font-weight: bold;
@@ -530,324 +606,50 @@
                 border: 1px solid #444; border-radius: 8px;
                 box-sizing: border-box; padding: 8px;
                 flex-grow: 1;
-                height: 240px;
             }
 
-            #auto-celeb-footer-buttons {
-                display: flex;
-                justify-content: space-between;
-                gap: 8px;
-                margin-top: 5px;
+            /* Nút Footer */
+            #dashboard-footer-buttons { display: flex; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+            #dashboard-footer-buttons .footer-btn {
+                flex-grow: 1; padding: 6px; border: none; border-radius: 5px; color: white;
+                cursor: pointer; font-weight: bold; transition: all 0.2s ease; font-size: 13px;
             }
-            .footer-btn {
-                flex-grow: 1;
-                padding: 6px;
-                border: none;
-                border-radius: 5px;
-                color: white;
-                cursor: pointer;
-                font-weight: bold;
-                transition: all 0.2s ease;
-                font-size: 13px;
-            }
-            .footer-btn:hover {
-                opacity: 0.8;
-                transform: translateY(-1px);
-            }
-            #btn-update { background-color: #0ea5e9; } /* Blue */
-            #btn-bug-report { background-color: #f59e0b; } /* Yellow */
-            #btn-donate { background-color: #22c55e; } /* Green */
+            #dashboard-footer-buttons .footer-btn:hover { opacity: 0.8; transform: translateY(-1px); }
+            #dashboard-footer-buttons #btn-update { background-color: #0ea5e9; }
+            #dashboard-footer-buttons #btn-bug-report { background-color: #f59e0b; }
+            #dashboard-footer-buttons #btn-donate { background-color: #22c55e; }
 
-            /* --- Giao diện Modals (Chung) --- */
-            #auto-celeb-modal-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.7);
-                backdrop-filter: blur(5px);
-                z-index: 10001;
-            }
-            .auto-celeb-modal {
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: #2c2c2e;
-                color: white;
-                border-radius: 14px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-                z-index: 10002;
-                width: 300px;
-                padding: 20px;
-                padding-top: 40px;
-                text-align: center;
-                border: 1px solid rgba(255,255,255,0.15);
-            }
-            .auto-celeb-modal h3 {
-                margin-top: 0;
-                margin-bottom: 15px;
-            }
-            .auto-celeb-modal p {
-                text-align: center;
-                margin-bottom: 15px;
-            }
-            .auto-celeb-modal-close {
-                position: absolute;
-                top: 10px;
-                right: 15px;
-                font-size: 28px;
-                font-weight: bold;
-                color: #aaa;
-                cursor: pointer;
-                line-height: 1;
-            }
-            .auto-celeb-modal-close:hover {
-                color: white;
-            }
-            .modal-button {
-                display: inline-block;
-                background-color: #0a84ff;
-                color: white;
-                padding: 10px 20px;
-                border-radius: 8px;
-                text-decoration: none;
-                font-weight: 600;
-                margin-top: 10px;
-                border: none; /* MỚI: Dùng cho nút copy */
-                font-family: inherit; /* MỚI: Dùng cho nút copy */
-                font-size: 1em; /* MỚI: Dùng cho nút copy */
-            }
-            .modal-button:hover {
-                background-color: #38a0ff;
-            }
-
-            /* ===== CSS MODAL UPDATE ===== */
-            #modal-update p.update-text {
-                font-size: 16px;
-                line-height: 1.5;
-                text-align: center;
-                margin-bottom: 0;
-            }
-            #modal-update .modal-update-version-display {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 10px;
-                margin-bottom: 15px;
-                padding: 10px 15px;
-                background: rgba(0,0,0,0.25);
-                border-radius: 10px;
-                border: 1px solid rgba(255,255,255,0.1);
-            }
-            #modal-update .modal-update-logo {
-                width: 24px;
-                height: 24px;
-                border-radius: 5px;
-                flex-shrink: 0;
-            }
-            #modal-update .modal-update-title-text {
-                font-size: 1.15em;
-                font-weight: 700;
-                color: #ef4444; /* Màu đỏ (red-500) */
-            }
-            #modal-update .modal-button-group {
-                display: flex;
-                gap: 10px;
-                margin-top: 20px;
-            }
-            #modal-update .modal-button-group .modal-button {
-                flex: 1;
-                margin-top: 0;
-                text-decoration: none;
-                padding: 10px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: all 0.2s ease;
-            }
-            #btn-go-to-update {
-                background-color: #0a84ff; /* Blue */
-            }
-            #btn-go-to-update:hover {
-                background-color: #38a0ff;
-            }
-            #btn-copy-update-link {
-                background-color: #555;
-            }
-            #btn-copy-update-link:hover {
-                background-color: #777;
-            }
-            #btn-copy-update-link.copied {
-                background-color: #22c55e; /* Green */
-                cursor: default;
-            }
-
-            /* ===== SỬA LẠI: CSS MODAL DONATE ===== */
-
-            #modal-donate h3 {
-                margin-bottom: 5px;
-            }
-
-            #modal-donate p.donate-lead {
-                margin-bottom: 15px;
-            }
-            #modal-donate p.donate-thankyou {
-                font-size: 0.9em;
-                color: #ccc;
-                margin-top: 0;
-                margin-bottom: 20px;
-            }
-
-            .donate-input-wrapper {
-                position: relative;
-                margin-bottom: 15px;
-            }
-
-            /* *** SỬA ĐỔI: ĐỔI MÀU CHỮ SANG XANH *** */
-            #donate-amount-input {
-                width: 100%;
-                padding: 12px;
-                padding-right: 45px;
-                border-radius: 8px;
-                border: 1px solid #777;
-                background: #333;
-                color: #3b82f6; /* <-- SỬA: Đổi màu chữ sang xanh */
-                font-weight: 600; /* <-- MỚI: Thêm đậm */
-                font-size: 16px;
-                box-sizing: border-box;
-                margin-bottom: 0;
-            }
-
-            .donate-suffix {
-                position: absolute;
-                right: 15px;
-                top: 50%;
-                transform: translateY(-50%);
-                color: #aaa;
-                font-weight: 600;
-                pointer-events: none;
-                display: none;
-            }
-            .donate-input-wrapper input:not(:placeholder-shown) ~ .donate-suffix {
-                display: block;
-            }
-
-            #donate-amount-input::-webkit-outer-spin-button,
-            #donate-amount-input::-webkit-inner-spin-button {
-                -webkit-appearance: none;
-                margin: 0;
-            }
-            #donate-amount-input {
-                -moz-appearance: textfield;
-            }
-            /* *** HẾT SỬA ĐỔI CSS DONATE *** */
-
-            #btn-generate-qr {
-                background: linear-gradient(135deg, #22c55e, #16a34a);
-                width: 100%;
-                margin-top: 0;
-                font-size: 16px;
-                font-weight: 600;
-                padding: 12px;
-                transition: all 0.2s ease;
-            }
-            #btn-generate-qr:hover {
-                filter: brightness(1.15);
-            }
-            #donate-qr-result {
-                margin-top: 15px;
-                min-height: 250px;
-                display: none;
-                align-items: center;
-                justify-content: center;
-                background: #fff;
-                border-radius: 10px;
-                padding: 10px;
-            }
-            #donate-qr-image {
-                max-width: 100%;
-                max-height: 250px;
-                display: none;
-            }
-            #donate-loading-text {
-                color: #000;
-                font-size: 16px;
-                font-weight: 600;
-                display: none;
-            }
-            #donate-error-message {
-                color: #ef4444;
-                font-size: 14px;
-                margin-top: 10px;
-                font-weight: 600;
-                display: none;
-            }
-
-            /* ===== CSS POPUP ===== */
+            /* ... (CSS cho Popup, Modal Chờ 10 giây không đổi) ... */
             #auto-celeb-popup-container {
-                position: fixed;
-                top: 80px;
-                right: 25px;
-                z-index: 10000;
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 12px;
-                pointer-events: none;
+                position: fixed; top: 80px; right: 25px; z-index: 10000;
+                display: flex; flex-direction: column; align-items: flex-end;
+                gap: 12px; pointer-events: none;
             }
             .celeb-popup-item {
-                background: rgba(30,30,30,0.65);
-                backdrop-filter: blur(15px);
-                color: #e5e7eb;
-                padding: 12px 18px;
-                border-radius: 16px;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.3);
-                border: 1px solid rgba(255,255,255,0.15);
-                font-size: 15px;
+                background: rgba(30,30,30,0.65); backdrop-filter: blur(15px); color: #e5e7eb;
+                padding: 12px 18px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+                border: 1px solid rgba(255,255,255,0.15); font-size: 15px;
                 animation: slideInFadeIn 0.5s forwards, fadeOut 0.5s 3.5s forwards;
-                transform: translateX(100%);
-                opacity: 0;
+                transform: translateX(100%); opacity: 0;
             }
             .celeb-popup-item .celeb-name { font-weight: 700; color: #ffffff; }
             .celeb-popup-item .celeb-count { font-size: 13px; opacity: 0.75; margin-right: 8px; }
             @keyframes slideInFadeIn { to { opacity: 1; transform: translateX(0); } }
             @keyframes fadeOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(50%); } }
-
-            /* ===== CSS MODAL CHỜ 10 GIÂY ===== */
             #auto-celeb-pre-run-overlay {
-                position: fixed;
-                top: 0; left: 0;
-                width: 100%; height: 100%;
-                background: rgba(0,0,0,0.8);
-                backdrop-filter: blur(10px);
-                z-index: 20000;
-                display: flex;
-                justify-content: center;
-                align-items: center;
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); z-index: 20000;
+                display: flex; justify-content: center; align-items: center;
             }
             #auto-celeb-pre-run-modal {
-                background: #1e1e1e;
-                border: 1px solid rgba(255,255,255,0.2);
-                border-radius: 16px;
-                padding: 24px 40px;
-                text-align: center;
-                color: white;
-                font-family: 'Inter', sans-serif;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+                background: #1e1e1e; border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 16px; padding: 24px 40px; text-align: center; color: white;
+                font-family: 'Inter', sans-serif; box-shadow: 0 10px 40px rgba(0,0,0,0.5);
             }
-            #auto-celeb-pre-run-modal h2 {
-                margin-top: 0;
-                color: #f59e0b; /* yellow */
-            }
-            #auto-celeb-pre-run-modal p {
-                font-size: 16px;
-                margin-bottom: 10px;
-            }
+            #auto-celeb-pre-run-modal h2 { margin-top: 0; color: #f59e0b; }
+            #auto-celeb-pre-run-modal p { font-size: 16px; margin-bottom: 10px; }
             #auto-celeb-pre-run-modal #auto-celeb-pre-run-timer {
-                font-size: 64px;
-                font-weight: 700;
-                color: #22c55e; /* green */
+                font-size: 64px; font-weight: 700; color: #22c55e;
                 font-family: 'JetBrains Mono', monospace;
             }
         `;
@@ -855,13 +657,14 @@
     }
 
     /**
-     * Tạo Bảng điều khiển CHÍNH (ĐÃ CẬP NHẬT - Sửa HTML Tool Bạn bè)
+     * TẠO UI CHÍNH (ĐÃ CẬP NHẬT v1.9)
+     * - Cập nhật HTML cho toggle switch
      */
     function createMainControlUI() {
         const container = document.createElement('div');
         container.id = 'auto-celeb-main-container';
 
-        // 1. Thêm Header (Hiển thị trên mọi trang)
+        // 1. Header (Như cũ)
         container.innerHTML = `
             <div id="auto-celeb-popup-header">
                 <span id="auto-celeb-popup-title">
@@ -872,7 +675,20 @@
             </div>
         `;
 
-        // 2. MỚI: Thêm Key Wall (Luôn thêm, nhưng sẽ bị ẩn/hiện bằng CSS)
+        const isCelebPage = window.location.href === CONFIG.TARGET_PAGE;
+        const isFriendPage = window.location.href === CONFIG.FRIENDS_PAGE;
+
+        // 2. Tabs (Như cũ)
+        const tabNav = document.createElement('div');
+        tabNav.id = 'auto-celeb-tab-nav';
+        // Đã đổi chỗ Celebrity Tools lên trước
+        tabNav.innerHTML = `
+            <a id="tab-friend-tools" class="nav-tab ${isFriendPage ? 'active' : ''}" href="${CONFIG.FRIENDS_PAGE}">Friends</a>
+            <a id="tab-celeb-tools" class="nav-tab ${isCelebPage ? 'active' : ''}" href="${CONFIG.TARGET_PAGE}">Celebrity Tools</a>
+        `;
+        container.appendChild(tabNav);
+
+        // 3. Key Wall (Như cũ)
         const keyWall = document.createElement('div');
         keyWall.id = 'auto-celeb-key-wall';
         keyWall.innerHTML = `
@@ -889,54 +705,18 @@
         `;
         container.appendChild(keyWall);
 
-        // 3. Thêm nội dung tùy theo trang
-        if (window.location.href === CONFIG.TARGET_PAGE) {
-            // ----- GIAO DIỆN ĐẦY ĐỦ (Trang celebrity.html) -----
-            const controlButton = document.createElement('button');
-            controlButton.id = 'auto-celeb-control-button';
-            container.appendChild(controlButton);
+        // 4. Nội dung tùy trang
+        if (isCelebPage) {
+            // ----- GIAO DIỆN TRANG CELEBRITY -----
+            const openDashboardButton = document.createElement('button');
+            openDashboardButton.id = 'auto-celeb-open-dashboard-btn';
+            openDashboardButton.textContent = 'Mở Bảng Điều Khiển';
+            container.appendChild(openDashboardButton);
 
-            const timerUI = document.createElement('div');
-            timerUI.id = 'auto-celeb-timer-ui';
-            timerUI.innerHTML = `
-                <div id="timer-display-group">
-                    <svg id="timer-progress-ring" viewBox="0 0 40 40">
-                        <circle class="timer-ring-bg" cx="20" cy="20" r="18"></circle>
-                        <circle class="timer-ring-fg" cx="20" cy="20" r="18"></circle>
-                    </svg>
-                    <span id="timer-display">00:00</span>
-                    <div id="timer-adjust-buttons">
-                        <span id="timer-plus-btn" class="timer-adjust-btn">+5</span>
-                        <span id="timer-minus-btn" class="timer-adjust-btn">-5</span>
-                    </div>
-                </div>
-                <div id="timer-toggle-switch">
-                    <input type="checkbox" id="timer-toggle-input" class="sr-only">
-                    <label for="timer-toggle-input" class="toggle-switch-label">
-                        <span class="toggle-switch-handle"></span>
-                    </label>
-                </div>
-            `;
-            container.appendChild(timerUI);
-
-            const logWrapper = document.createElement('div');
-            logWrapper.id = 'auto-celeb-log-wrapper';
-            logWrapper.innerHTML = `
-                <label>Nhật ký hệ thống (Script)</label>
-                <textarea id="auto-celeb-script-log" rows="10" disabled=""></textarea>
-                <div id="auto-celeb-footer-buttons">
-                    <button id="btn-update" class="footer-btn">Update</button>
-                    <button id="btn-bug-report" class="footer-btn">Báo lỗi</button>
-                    <button id="btn-donate" class="footer-btn">Donate</button>
-                </div>
-            `;
-            container.appendChild(logWrapper);
-
-        } else if (window.location.href === CONFIG.FRIENDS_PAGE) { // <-- MỚI
-            // ----- GIAO DIỆN BẠN BÈ (SỬA LẠI HTML) -----
+        } else if (isFriendPage) {
+            // ----- GIAO DIỆN TRANG FRIENDS -----
             const friendTool = document.createElement('div');
             friendTool.id = 'auto-friend-tool-wrapper';
-            // SỬA LẠI HTML ĐỂ GIỐNG ẢNH DONATE
             friendTool.innerHTML = `
                 <h3 id="friend-tool-title">TÌM KIẾM TỰ ĐỘNG</h3>
                 <p id="friend-tool-note">Chỉ add được đối với tài khoản Locket Celeb!</p>
@@ -947,35 +727,83 @@
             `;
             container.appendChild(friendTool);
 
-            // Thêm log UI (giống hệt trang celeb)
-            const logWrapper = document.createElement('div');
-            logWrapper.id = 'auto-celeb-log-wrapper';
-            logWrapper.innerHTML = `
-                <label>Nhật ký hệ thống (Script)</label>
-                <textarea id="auto-celeb-script-log" rows="10" disabled=""></textarea>
-                <div id="auto-celeb-footer-buttons">
-                    <button id="btn-update" class="footer-btn">Update</button>
-                    <button id="btn-bug-report" class="footer-btn">Báo lỗi</button>
-                    <button id="btn-donate" class="footer-btn">Donate</button>
-                </div>
-            `;
-            container.appendChild(logWrapper);
-
         } else {
-            // ----- GIAO DIỆN TỐI GIẢN (Các trang khác) -----
-            const redirectButton = document.createElement('button');
-            redirectButton.id = 'auto-celeb-redirect-button';
-            redirectButton.textContent = '➡️ Về trang Celebrity';
-            container.appendChild(redirectButton);
+            // ----- GIAO DIỆN TRANG KHÁC -----
+            const redirectButtons = document.createElement('div');
+            redirectButtons.id = 'auto-celeb-redirect-buttons';
+            redirectButtons.innerHTML = `
+                <a href="${CONFIG.TARGET_PAGE}" class="auto-celeb-redirect-button">➡️ Về trang Celebrity</a>
+                <a href="${CONFIG.FRIENDS_PAGE}" class="auto-celeb-redirect-button">➡️ Về trang Friends</a>
+            `;
+            container.appendChild(redirectButtons);
         }
 
-        // 4. Thêm container vào trang
+        // 5. Thêm container vào trang
         document.body.appendChild(container);
 
-        // 5. MỚI: Thêm HTML cho Modals (ẩn ban đầu) - Thêm vào body
+        // 6. Thêm HTML cho Modals
         const modalContainer = document.createElement('div');
         modalContainer.innerHTML = `
             <div id="auto-celeb-modal-overlay" style="display: none;"></div>
+
+            <div id="celeb-dashboard-modal" class="auto-celeb-modal" style="display: none;">
+                <span class="auto-celeb-modal-close">&times;</span>
+
+                <div id="modal-dashboard-layout">
+                    <div id="modal-celeb-list-wrapper">
+                        <h3>Danh sách Locket Celeb</h3>
+                        <div id="celeb-select-all-label"> <span id="celeb-select-all-text">Chọn tất cả</span>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="celeb-select-all-input" class="toggle-switch-input sr-only" checked>
+                                <label for="celeb-select-all-input" class="toggle-switch-label">
+                                    <span class="toggle-switch-handle"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="celeb-selection-list">
+                            <p style="color: #aaa;">Đang quét danh sách celeb...</p>
+                        </div>
+                    </div>
+
+                    <div id="modal-celeb-controls-wrapper">
+
+                        <button id="dashboard-control-button">Bắt đầu Auto Celeb</button>
+
+                        <div id="dashboard-timer-ui">
+                            <div id="timer-display-group">
+                                <svg id="timer-progress-ring" viewBox="0 0 40 40">
+                                    <circle class="timer-ring-bg" cx="20" cy="20" r="18"></circle>
+                                    <circle class="timer-ring-fg" cx="20" cy="20" r="18"></circle>
+                                </svg>
+                                <span id="timer-display">00:00</span>
+                                <div id="timer-adjust-buttons">
+                                    <span id="timer-plus-btn" class="timer-adjust-btn">+5</span>
+                                    <span id="timer-minus-btn" class="timer-adjust-btn">-5</span>
+                                </div>
+                            </div>
+                            <div id="timer-toggle-switch" class="toggle-switch">
+                                <input type="checkbox" id="timer-toggle-input" class="toggle-switch-input sr-only">
+                                <label for="timer-toggle-input" class="toggle-switch-label">
+                                    <span class="toggle-switch-handle"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="dashboard-log-wrapper">
+                            <label for="dashboard-script-log">Nhật ký hệ thống (Script)</label>
+                            <textarea id="dashboard-script-log" rows="10" disabled=""></textarea>
+                        </div>
+
+                        <div id="dashboard-footer-buttons">
+                            <button id="btn-update" class="footer-btn">Update</button>
+                            <button id="btn-bug-report" class="footer-btn">Báo lỗi</button>
+                            <button id="btn-donate" class="footer-btn">Donate</button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
 
             <div id="modal-bug-report" class="auto-celeb-modal" style="display: none;">
                 <span class="auto-celeb-modal-close">&times;</span>
@@ -987,16 +815,11 @@
             <div id="modal-update" class="auto-celeb-modal" style="display: none;">
                 <span class="auto-celeb-modal-close">&times;</span>
                 <h3>Cập nhật phiên bản</h3>
-
                 <div class="modal-update-version-display">
                     <img src="${CONFIG.LOGO_URL}" class="modal-update-logo" alt="Logo">
                     <span class="modal-update-title-text">Locket Celebrity ${CONFIG.SCRIPT_VERSION}</span>
                 </div>
-
-                <p class="update-text">
-                    Vui lòng cập nhật phiên bản mới.
-                </p>
-
+                <p class="update-text">Vui lòng cập nhật phiên bản mới.</p>
                 <div class="modal-button-group">
                     <a id="btn-go-to-update" href="${CONFIG.UPDATE_URL}" target="_blank" class="modal-button">Cài đặt</a>
                     <button id="btn-copy-update-link" class="modal-button">Copy Link</button>
@@ -1006,16 +829,12 @@
             <div id="modal-donate" class="auto-celeb-modal" style="display: none;">
                 <span class="auto-celeb-modal-close">&times;</span>
                 <h3>Donate</h3>
-
                 <p class="donate-thankyou">Cảm ơn sự ủng hộ của bạn!</p>
-
                 <p class="donate-lead">Nhập số tiền bạn muốn donate:</p>
-
                 <div class="donate-input-wrapper">
                     <input type="text" id="donate-amount-input" placeholder="Nhập số tiền (VND)" inputmode="numeric">
                     <span class="donate-suffix">VND</span>
                 </div>
-
                 <button id="btn-generate-qr" class="modal-button">Tạo mã QR</button>
                 <p id="donate-error-message"></p>
                 <div id="donate-qr-result">
@@ -1028,30 +847,31 @@
     }
 
     /**
-     * Cập nhật Nút Bắt đầu/Dừng
+     * CẬP NHẬT NÚT BẮT ĐẦU/DỪNG
      */
     function updateControlButtonState(state) {
-        const button = document.getElementById('auto-celeb-control-button');
-        if (!button) return;
+        const modalButton = document.getElementById('dashboard-control-button');
+        if (!modalButton) return;
+
         if (state.isRunning) {
-            button.textContent = 'Dừng Auto Celeb';
-            button.classList.add('running');
+            modalButton.textContent = 'Dừng Auto Celeb';
+            modalButton.classList.add('running');
         } else {
-            button.textContent = 'Bắt đầu Auto Celeb';
-            button.classList.remove('running');
+            modalButton.textContent = 'Bắt đầu Auto Celeb';
+            modalButton.classList.remove('running');
         }
     }
 
     /**
-     * Cập nhật UI Timer
+     * CẬP NHẬT UI TIMER
      */
     function updateTimerUI(mode, value) {
-        const timerUI = document.getElementById('auto-celeb-timer-ui');
+        const timerUI = document.getElementById('dashboard-timer-ui');
         if (!timerUI) return;
 
-        const display = document.getElementById('timer-display');
-        const toggleInput = document.getElementById('timer-toggle-input');
-        const ringFg = document.querySelector('#timer-progress-ring .timer-ring-fg');
+        const display = timerUI.querySelector('#timer-display');
+        const toggleInput = timerUI.querySelector('#timer-toggle-input');
+        const ringFg = timerUI.querySelector('#timer-progress-ring .timer-ring-fg');
 
         if (!display || !toggleInput || !ringFg) return;
 
@@ -1079,12 +899,7 @@
     }
 
 
-    // --- Chức năng Hẹn giờ Tự Reset ---
-
-    /**
-     * *** ĐÃ SỬA (Task 1) ***
-     * Thêm logic để đảm bảo giá trị tối thiểu là 1, và các giá trị < 5 được chuẩn hóa.
-     */
+    // --- (Hàm loadTimerConfig, saveTimerConfig, generateDonateQR không đổi) ---
     function loadTimerConfig() {
         const configStr = localStorage.getItem(CONFIG.TIMER_CONFIG_KEY);
         if (configStr) {
@@ -1095,23 +910,14 @@
             currentTimerConfig.minutes = 60;
             currentTimerConfig.enabled = false;
         }
+        if (currentTimerConfig.minutes < 1) { currentTimerConfig.minutes = 1; }
+        else if (currentTimerConfig.minutes > 1 && currentTimerConfig.minutes < 5) { currentTimerConfig.minutes = 5; }
 
-        // *** MỚI: Đảm bảo giá trị đã lưu hợp lệ theo logic mới ***
-        if (currentTimerConfig.minutes < 1) {
-            currentTimerConfig.minutes = 1;
-        } else if (currentTimerConfig.minutes > 1 && currentTimerConfig.minutes < 5) {
-            currentTimerConfig.minutes = 5; // Nếu lưu 2, 3, 4 -> nhảy lên 5
-        }
-        // *** HẾT MỚI ***
-
-        if (document.getElementById('auto-celeb-timer-ui')) {
+        if (document.getElementById('dashboard-timer-ui')) {
             const activeTimerEndTime = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
-            if (!activeTimerEndTime) {
-                updateTimerUI();
-            }
+            if (!activeTimerEndTime) { updateTimerUI(); }
         }
     }
-
     function saveTimerConfig() {
         const configToSave = {
             minutes: currentTimerConfig.minutes,
@@ -1119,73 +925,46 @@
         };
         localStorage.setItem(CONFIG.TIMER_CONFIG_KEY, JSON.stringify(configToSave));
     }
-
-    // *** SỬA LẠI: HÀM TẠO QR (Thêm xóa dấu phẩy) ***
     function generateDonateQR() {
         const amountInput = document.getElementById('donate-amount-input');
-
-        // *** SỬA ĐỔI: Xóa dấu phẩy trước khi parse ***
         const rawValue = amountInput.value.replace(/,/g, '');
         const amount = parseInt(rawValue, 10);
-        // *** HẾT SỬA ĐỔI ***
-
         const qrResultDiv = document.getElementById('donate-qr-result');
         const qrImage = document.getElementById('donate-qr-image');
         const loadingText = document.getElementById('donate-loading-text');
         const errorText = document.getElementById('donate-error-message');
-
-        // 1. Validate
         if (isNaN(amount) || amount < 1000) {
             errorText.textContent = 'Đã có lỗi xảy ra. Vui lòng thử lại sau';
             errorText.style.display = 'block';
             return;
         }
         errorText.style.display = 'none';
-
-        // 2. Show loading
         qrResultDiv.style.display = 'flex';
         qrImage.style.display = 'none';
         loadingText.style.display = 'block';
-
-        // 3. API Call using GM_xmlhttpRequest
         const apiData = {
-            bin: "970407",
-            accountNo: "25127777777",
-            accountName: "VU QUANG HUY",
-            amount: String(amount),
-            content: "Donate Locket Celebrity"
+            bin: "970407", accountNo: "25127777777", accountName: "VU QUANG HUY",
+            amount: String(amount), content: "Donate Locket Celebrity"
         };
-
         GM_xmlhttpRequest({
-            method: "POST",
-            url: "https://open.oapi.vn/banking/generate-qr",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            data: JSON.stringify(apiData),
+            method: "POST", url: "https://open.oapi.vn/banking/generate-qr",
+            headers: { "Content-Type": "application/json" }, data: JSON.stringify(apiData),
             onload: function(response) {
                 try {
                     const data = JSON.parse(response.responseText);
-
                     if (data && data.data && data.code === 'success') {
-                        // 4. Success
                         qrImage.src = data.data;
                         qrImage.style.display = 'block';
                         loadingText.style.display = 'none';
-                    } else {
-                        // 5. API Error
-                        throw new Error(data.message || 'Phản hồi API không hợp lệ.');
-                    }
+                    } else { throw new Error(data.message || 'Phản hồi API không hợp lệ.'); }
                 } catch (e) {
-                    // 5. JSON Parse or Logic Error
-                    console.error('Lỗi khi parse response:', e, response.responseText); // Log thêm
+                    console.error('Lỗi khi parse response:', e, response.responseText);
                     errorText.textContent = `Lỗi xử lý: ${e.message}`;
                     errorText.style.display = 'block';
-                    qrResultDiv.style.display = 'none'; // Hide the white box
+                    qrResultDiv.style.display = 'none';
                 }
             },
             onerror: function(response) {
-                // 5. Network Error
                 console.error('Lỗi GM_xmlhttpRequest:', response);
                 errorText.textContent = 'Lỗi mạng. Không thể kết nối tới API.';
                 errorText.style.display = 'block';
@@ -1195,284 +974,226 @@
     }
 
     /**
-     * Cài đặt TOÀN BỘ điều khiển UI (ĐÃ CẬP NHẬT - Thêm listener format tiền)
+     * CÀI ĐẶT ĐIỀU KHIỂN UI (ĐÃ CẬP NHẬT v1.9)
+     * - Sửa logic click cho toggle switch
      */
     function setupMainUIControls() {
-        // --- Điều khiển chung (cho mọi trang) ---
+        // --- Điều khiển chung (Header, Key Wall) ---
         const mainContainer = document.getElementById('auto-celeb-main-container');
         const collapseToggle = document.getElementById('auto-celeb-collapse-toggle');
         const popupTitle = document.getElementById('auto-celeb-popup-title');
+        const toggleCollapse = (e) => { mainContainer.classList.toggle('collapsed'); };
+        if (collapseToggle && mainContainer) { collapseToggle.addEventListener('click', toggleCollapse); }
+        if (popupTitle && mainContainer) { popupTitle.addEventListener('click', toggleCollapse); }
 
-        const toggleCollapse = (e) => {
-            mainContainer.classList.toggle('collapsed');
-        };
-
-        if (collapseToggle && mainContainer) {
-            collapseToggle.addEventListener('click', toggleCollapse);
-        }
-        if (popupTitle && mainContainer) {
-            popupTitle.addEventListener('click', toggleCollapse);
-        }
-
-        // --- MỚI: Logic cho Key Wall (luôn chạy) ---
         const btnSubmitKey = document.getElementById('btn-submit-key');
         const keyInput = document.getElementById('key-input-field');
         const keyError = document.getElementById('key-error-message');
-
         const validateKey = () => {
             const inputVal = keyInput.value.trim();
             if (inputVal === CONFIG.SECRET_KEY) {
-                // ĐÚNG KEY
                 localStorage.setItem(CONFIG.KEY_STORAGE_KEY, inputVal);
                 mainContainer.classList.remove('locked');
                 alert('Kích hoạt thành công! Cảm ơn bạn đã sử dụng.');
                 keyError.style.display = 'none';
                 keyInput.classList.remove('shake');
             } else {
-                // SAI KEY
                 keyError.style.display = 'block';
                 keyInput.classList.add('shake');
                 setTimeout(() => keyInput.classList.remove('shake'), 300);
             }
         };
-
         if(btnSubmitKey && keyInput && keyError) {
             btnSubmitKey.addEventListener('click', validateKey);
-            // Cho phép nhấn Enter để xác thực
-            keyInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    validateKey();
-                }
-            });
+            keyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { validateKey(); } });
         }
 
-        // Nút "Lấy Key" không cần listener vì nó là thẻ <a> với target="_blank"
+        // --- Gắn listener cho Bảng điều khiển (Dashboard) ---
+        const dashboardModal = document.getElementById('celeb-dashboard-modal');
+        if (!dashboardModal) return;
 
-        // --- MỚI: Điều khiển cho trang khác ---
-        const redirectButton = document.getElementById('auto-celeb-redirect-button');
-        if (redirectButton) {
-            redirectButton.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('[Auto Locket Celeb] ➡️ Đang chuyển hướng về celebrity.html...');
-                window.location.href = CONFIG.TARGET_PAGE;
-            });
-        }
-
-        // --- Điều khiển chỉ dành cho trang celebrity.html ---
-        const plusBtn = document.getElementById('timer-plus-btn');
-        const minusBtn = document.getElementById('timer-minus-btn');
-        const toggleInput = document.getElementById('timer-toggle-input');
-        const timerUI = document.getElementById('auto-celeb-timer-ui');
-
+        // --- Điều khiển Timer (Bên trong Modal) ---
+        const plusBtn = dashboardModal.querySelector('#timer-plus-btn');
+        const minusBtn = dashboardModal.querySelector('#timer-minus-btn');
+        const toggleInput = dashboardModal.querySelector('#timer-toggle-input');
+        const timerUI = dashboardModal.querySelector('#dashboard-timer-ui');
         if (plusBtn && minusBtn && toggleInput && timerUI) {
-            // *** BẮT ĐẦU SỬA (Task 1) ***
             plusBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                if (activeTimerId) return;
-
-                if (currentTimerConfig.minutes === 1) {
-                    currentTimerConfig.minutes = 5;
-                } else {
-                    currentTimerConfig.minutes += 5;
-                }
-
+                event.stopPropagation(); if (activeTimerId) return;
+                if (currentTimerConfig.minutes === 1) { currentTimerConfig.minutes = 5; }
+                else { currentTimerConfig.minutes += 5; }
                 log(`Tăng thời gian hẹn giờ lên: ${currentTimerConfig.minutes} phút.`, 'timer');
-                saveTimerConfig();
-                updateTimerUI();
+                saveTimerConfig(); updateTimerUI();
             });
-
             minusBtn.addEventListener('click', (event) => {
-                event.stopPropagation();
-                if (activeTimerId) return;
-
-                if (currentTimerConfig.minutes > 5) {
-                    currentTimerConfig.minutes -= 5;
-                    log(`Giảm thời gian hẹn giờ xuống: ${currentTimerConfig.minutes} phút.`, 'timer');
-                } else if (currentTimerConfig.minutes === 5) {
-                    currentTimerConfig.minutes = 1;
-                    log(`Giảm thời gian hẹn giờ xuống: ${currentTimerConfig.minutes} phút.`, 'timer');
-                } else { // currentTimerConfig.minutes là 1
-                    currentTimerConfig.minutes = 1;
-                    log(`Thời gian hẹn giờ tối thiểu là 1 phút.`, 'timer');
-                }
-                saveTimerConfig();
-                updateTimerUI();
+                event.stopPropagation(); if (activeTimerId) return;
+                if (currentTimerConfig.minutes > 5) { currentTimerConfig.minutes -= 5; }
+                else if (currentTimerConfig.minutes === 5) { currentTimerConfig.minutes = 1; }
+                else { currentTimerConfig.minutes = 1; }
+                log(`Giảm thời gian hẹn giờ xuống: ${currentTimerConfig.minutes} phút.`, 'timer');
+                saveTimerConfig(); updateTimerUI();
             });
-            // *** KẾT THÚC SỬA (Task 1) ***
-
             toggleInput.addEventListener('change', (event) => {
-                event.stopPropagation();
-                if (activeTimerId) {
-                    toggleInput.checked = true;
-                    return;
-                }
+                // event.stopPropagation(); // Không cần stop, vì nó là input
+                if (activeTimerId) { toggleInput.checked = true; return; }
                 currentTimerConfig.enabled = toggleInput.checked;
                 log(`Hẹn giờ ${currentTimerConfig.enabled ? 'ĐÃ BẬT' : 'ĐÃ TẮT'}.`, 'timer');
-                saveTimerConfig();
-                updateTimerUI();
-            });
-
-            timerUI.addEventListener('click', (event) => {
-                if (!event.target.closest('.timer-adjust-btn') && !event.target.closest('#timer-toggle-switch')) {
-                    if (window.location.href !== CONFIG.TARGET_PAGE) {
-                        log('Đang ở trang khác. Chuyển hướng về celebrity.html...');
-                        window.location.href = CONFIG.TARGET_PAGE;
-                    }
-                }
+                saveTimerConfig(); updateTimerUI();
             });
         }
 
-        // --- MỚI: Logic cho các nút footer và modals (Chạy trên cả 2 trang) ---
-        const btnUpdate = document.getElementById('btn-update');
-        const btnBugReport = document.getElementById('btn-bug-report');
-        const btnDonate = document.getElementById('btn-donate'); // Nút này vẫn tồn tại
-        const btnGenerateQR = document.getElementById('btn-generate-qr'); // <-- MỚI (Task 7)
+        // --- Điều khiển Nút Footer (Bên trong Modal) ---
+        const btnUpdate = dashboardModal.querySelector('#btn-update');
+        const btnBugReport = dashboardModal.querySelector('#btn-bug-report');
+        const btnDonate = dashboardModal.querySelector('#btn-donate');
+        const btnGenerateQR = document.getElementById('btn-generate-qr');
 
         const modalOverlay = document.getElementById('auto-celeb-modal-overlay');
         const modalBug = document.getElementById('modal-bug-report');
         const modalUpdate = document.getElementById('modal-update');
-        const modalDonate = document.getElementById('modal-donate'); // <-- MỚI (Task 7)
+        const modalDonate = document.getElementById('modal-donate');
 
         const allModals = document.querySelectorAll('.auto-celeb-modal');
         const allCloseButtons = document.querySelectorAll('.auto-celeb-modal-close');
 
-        // Hàm helper để đóng tất cả modal
         const closeAllModals = () => {
             if (modalOverlay) modalOverlay.style.display = 'none';
-            allModals.forEach(modal => {
-                if (modal) modal.style.display = 'none';
-            });
+            allModals.forEach(modal => { if (modal) modal.style.display = 'none'; });
         };
 
-        // Nút Update
         if (btnUpdate && modalUpdate && modalOverlay) {
-            btnUpdate.addEventListener('click', (e) => {
-                e.preventDefault();
-                modalOverlay.style.display = 'block';
-                modalUpdate.style.display = 'block';
-            });
+            btnUpdate.addEventListener('click', (e) => { e.preventDefault(); modalOverlay.style.display = 'block'; modalUpdate.style.display = 'block'; });
         }
-
-        // Nút Báo lỗi
         if (btnBugReport && modalBug && modalOverlay) {
-            btnBugReport.addEventListener('click', (e) => {
-                e.preventDefault();
-                modalOverlay.style.display = 'block';
-                modalBug.style.display = 'block';
-            });
+            btnBugReport.addEventListener('click', (e) => { e.preventDefault(); modalOverlay.style.display = 'block'; modalBug.style.display = 'block'; });
         }
-
-        // Nút Donate (*** ĐÃ SỬA - Task 7 ***)
         if (btnDonate && modalDonate && modalOverlay) {
             btnDonate.addEventListener('click', (e) => {
                 e.preventDefault();
-
-                // Reset QR modal khi mở
                 document.getElementById('donate-amount-input').value = '';
                 document.getElementById('donate-qr-result').style.display = 'none';
                 document.getElementById('donate-error-message').style.display = 'none';
                 document.getElementById('donate-qr-image').src = '';
-
-                // (Task 12) Ẩn suffix VND khi mở modal
                 const suffix = document.querySelector('.donate-suffix');
                 if (suffix) suffix.style.display = 'none';
-
-
-                modalOverlay.style.display = 'block';
-                modalDonate.style.display = 'block';
+                modalOverlay.style.display = 'block'; modalDonate.style.display = 'block';
             });
         }
+        if (btnGenerateQR) { btnGenerateQR.addEventListener('click', (e) => { e.preventDefault(); generateDonateQR(); }); }
 
-        // *** MỚI: Logic cho nút "Tạo mã QR" (Task 7) ***
-        if (btnGenerateQR) {
-            btnGenerateQR.addEventListener('click', (e) => {
-                e.preventDefault();
-                generateDonateQR();
-            });
-        }
-
-        // *** MỚI: Logic cho nút copy link update ***
         const btnCopyUpdateLink = document.getElementById('btn-copy-update-link');
         if (btnCopyUpdateLink) {
             btnCopyUpdateLink.addEventListener('click', (e) => {
-                e.preventDefault();
-
-                // Tránh copy nhiều lần
-                if (btnCopyUpdateLink.classList.contains('copied')) return;
-
+                e.preventDefault(); if (btnCopyUpdateLink.classList.contains('copied')) return;
                 navigator.clipboard.writeText(CONFIG.UPDATE_URL).then(() => {
-                    // Thành công
                     const originalText = btnCopyUpdateLink.textContent;
                     btnCopyUpdateLink.textContent = 'Đã copy!';
                     btnCopyUpdateLink.classList.add('copied');
-
                     setTimeout(() => {
                         btnCopyUpdateLink.textContent = originalText;
                         btnCopyUpdateLink.classList.remove('copied');
-                    }, 2000); // Reset sau 2 giây
-
-                }).catch(err => {
-                    // Thất bại (hiếm)
-                    console.error('[Auto Locket Celeb] Lỗi khi copy link: ', err);
-                    alert('Lỗi khi copy. Vui lòng thử lại.');
-                });
+                    }, 2000);
+                }).catch(err => { console.error('[Auto Locket Celeb] Lỗi khi copy link: ', err); alert('Lỗi khi copy. Vui lòng thử lại.'); });
             });
         }
-        // *** HẾT: Logic nút copy ***
-
-        // *** MỚI: Logic format tiền cho ô Donate ***
         const donateInput = document.getElementById('donate-amount-input');
         if (donateInput) {
             donateInput.addEventListener('input', (e) => {
-                // 1. Lấy giá trị, xóa mọi thứ không phải số
                 let value = e.target.value.replace(/[^0-9]/g, '');
-
-                // 2. Nếu có giá trị
                 if (value.length > 0) {
-                    // Chuyển thành số để xóa số 0 ở đầu (vd: "0050" -> 50)
-                    // Dùng BigInt để hỗ trợ số tiền lớn
                     const numValue = BigInt(value);
-                    // 3. Format lại và gán vào input
                     e.target.value = numValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                } else { e.target.value = ''; }
+            });
+        }
+
+        if (modalOverlay) modalOverlay.addEventListener('click', closeAllModals);
+        allCloseButtons.forEach(btn => btn.addEventListener('click', closeAllModals));
+
+        // --- Điều khiển Logic Bảng điều khiển (v1.9 SỬA LỖI CLICK) ---
+        const modalStartButton = dashboardModal.querySelector('#dashboard-control-button');
+        const selectAllContainer = dashboardModal.querySelector('#celeb-select-all-label'); // Đây là <div> wrapper
+        const selectAllInput = dashboardModal.querySelector('#celeb-select-all-input');
+        const selectAllToggle = selectAllContainer.querySelector('.toggle-switch'); // <div> của toggle
+
+        if (modalStartButton) {
+            modalStartButton.addEventListener('click', () => {
+                const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+                if (state.isRunning) {
+                    stopProcess();
                 } else {
-                    // 4. Nếu rỗng, set rỗng
-                    e.target.value = '';
+                    startProcessFromModal();
                 }
             });
         }
-        // *** HẾT: Logic format tiền ***
 
-        // Sự kiện đóng modal
-        if (modalOverlay) modalOverlay.addEventListener('click', closeAllModals);
-        allCloseButtons.forEach(btn => btn.addEventListener('click', closeAllModals));
+        if (selectAllContainer && selectAllInput && selectAllToggle) {
+            // Click vào bất cứ đâu trên hàng "Chọn tất cả"
+            selectAllContainer.addEventListener('click', () => {
+                selectAllInput.checked = !selectAllInput.checked;
+                selectAllInput.dispatchEvent(new Event('change'));
+            });
+            // Click vào chính cái toggle
+            selectAllToggle.addEventListener('click', (e) => {
+                e.stopPropagation(); // Ngăn sự kiện click của selectAllContainer
+            });
+
+            // Khi toggle "Chọn tất cả" thay đổi
+            selectAllInput.addEventListener('change', () => {
+                const isChecked = selectAllInput.checked;
+                const allCelebToggles = document.querySelectorAll('.celeb-item-toggle-input');
+                allCelebToggles.forEach(toggle => {
+                    if (toggle.checked !== isChecked) {
+                        toggle.checked = isChecked;
+                        // Kích hoạt thay đổi class selected
+                        const item = toggle.closest('.celeb-list-item-new');
+                        if (item) item.classList.toggle('selected', isChecked);
+                    }
+                });
+            });
+        }
+    }
+
+    /**
+     * HÀM MỚI (v1.8): Đồng bộ nút "Chọn tất cả"
+     */
+    function syncSelectAllToggle() {
+        const selectAllInput = document.getElementById('celeb-select-all-input');
+        if (!selectAllInput) return;
+
+        const allCelebToggles = document.querySelectorAll('.celeb-item-toggle-input');
+        const total = allCelebToggles.length;
+
+        if (total === 0) {
+            selectAllInput.checked = false;
+            return;
+        }
+
+        const checkedCount = Array.from(allCelebToggles).filter(toggle => toggle.checked).length;
+
+        if (checkedCount === total) {
+            selectAllInput.checked = true;
+        } else {
+            selectAllInput.checked = false;
+        }
     }
 
 
-    /**
-     * MỚI: Định dạng thời gian thành HH:MM:SS
-     */
+    // --- (formatTimeWithHours, findButtonByText không đổi) ---
     function formatTimeWithHours(totalSeconds) {
         const absSeconds = Math.abs(totalSeconds);
         const hours = Math.floor(absSeconds / 3600);
         const minutes = Math.floor((absSeconds % 3600) / 60);
         const seconds = Math.floor(absSeconds % 60);
-
         const sign = totalSeconds < 0 ? '-' : '';
-
         return `${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
-
-    /**
-     * MỚI: Tìm nút trên trang bằng text (chính xác)
-     */
     function findButtonByText(text) {
         const buttons = document.querySelectorAll('button');
         const searchText = text.trim().toLowerCase();
         for (const button of buttons) {
             const buttonText = button.textContent.trim().toLowerCase();
-            if (buttonText === searchText) {
-                return button;
-            }
+            if (buttonText === searchText) { return button; }
         }
         return null;
     }
@@ -1480,9 +1201,9 @@
 
     // --- CÁC HÀM LOGIC CHÍNH (CELEB) ---
 
+    // --- (startReloadTimer, cancelReloadTimer, executeTimerReset, showPreRunCountdown, closeNotificationPopup, scrollToCelebSection, sleep, waitForElementById, findLastCelebId không đổi) ---
     function startReloadTimer(minutes) {
         currentTimerTotalDuration = minutes * 60;
-
         if (activeTimerId) clearInterval(activeTimerId);
         let endTimeStr = sessionStorage.getItem(CONFIG.TIMER_END_TIME_KEY);
         let endTime;
@@ -1512,33 +1233,24 @@
         updateCountdown();
         activeTimerId = setInterval(updateCountdown, 1000);
     }
-
     function cancelReloadTimer() {
-        if (webLogObserver) clearInterval(webLogObserver); // <-- MỚI: Dừng theo dõi
+        if (webLogObserver) clearInterval(webLogObserver);
         if (activeTimerId) {
             clearInterval(activeTimerId);
             activeTimerId = null;
             log('Đã hủy đồng hồ đếm ngược.', 'info');
-            updateTimerUI();
+            updateTimerUI(); // Cập nhật UI trong modal
         }
         sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
     }
-
     function executeTimerReset() {
-        if (webLogObserver) clearInterval(webLogObserver); // <-- MỚI: Dừng theo dõi
+        if (webLogObserver) clearInterval(webLogObserver);
         log('Hẹn giờ kết thúc. ĐANG ĐẶT CỜ RESTART VÀ TẢI LẠI TRANG...', 'timer');
         localStorage.setItem(CONFIG.TIMER_RESTART_KEY, 'true');
         sessionStorage.removeItem(CONFIG.STORAGE_KEY);
         sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
-        // *** KHÔNG XÓA LOG_STORAGE_KEY (Task 2) ***
         location.reload();
     }
-
-    /**
-     * *** MỚI (Task 2) ***
-     * Hiển thị modal đếm ngược 10 giây trước khi chạy script để tránh lag.
-     * @param {function} callback - Hàm (startProcess) sẽ được gọi sau khi đếm ngược xong.
-     */
     function showPreRunCountdown(callback) {
         const overlay = document.createElement('div');
         overlay.id = 'auto-celeb-pre-run-overlay';
@@ -1550,31 +1262,19 @@
             </div>
         `;
         document.body.appendChild(overlay);
-
         let countdown = 10;
         const timerElement = document.getElementById('auto-celeb-pre-run-timer');
-
         const interval = setInterval(() => {
             countdown--;
-            if (timerElement) {
-                timerElement.textContent = countdown;
-            }
-
+            if (timerElement) { timerElement.textContent = countdown; }
             if (countdown <= 0) {
                 clearInterval(interval);
-                if (overlay) {
-                    overlay.remove();
-                }
-                callback(); // Chạy hàm startProcess
+                if (overlay) { overlay.remove(); }
+                callback();
             }
         }, 1000);
     }
-
-    /**
-     * SỬA LẠI: Hàm này sẽ kiểm tra cả 2 loại popup
-     */
     function closeNotificationPopup() {
-        // 1. Logic cũ để đóng #notificationPopup
         try {
             const oldCloseButton = document.querySelector('#notificationPopup .close, #notificationPopup [data-dismiss="modal"]');
             const oldPopup = document.querySelector('#notificationPopup');
@@ -1582,9 +1282,7 @@
                 log('Phát hiện popup thông báo cũ. Tự động đóng...', 'info');
                 oldCloseButton.click();
             }
-        } catch (e) { /* Bỏ qua lỗi */ }
-
-        // 2. Logic MỚI để đóng "THÔNG BÁO QUAN TRỌNG"
+        } catch (e) { }
         try {
             const allTitles = document.querySelectorAll('h5, h4, strong, div.modal-title');
             let titleElement = null;
@@ -1594,36 +1292,27 @@
                     break;
                 }
             }
-
-            if (!titleElement) return; // Không tìm thấy, thoát
-
+            if (!titleElement) return;
             const modal = titleElement.closest('.modal, .modal-dialog, .modal-content');
             if (modal && (modal.style.display !== 'none' && !modal.classList.contains('hidden'))) {
-
                 const buttons = modal.querySelectorAll('button, a');
                 for (const btn of buttons) {
                     if (btn.textContent.trim() === 'Đóng') {
                         log('Phát hiện "Thông Báo Quan Trọng". Tự động đóng...', 'info');
                         btn.click();
-                        return; // Đã click, thoát
+                        return;
                     }
                 }
             }
-        } catch (e) { /* Bỏ qua lỗi */ }
+        } catch (e) { }
     }
-
-
     function scrollToCelebSection() {
         const section = document.getElementById('usernameSearch');
-        if (section) {
-            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (section) { section.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     }
-
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
-
     function waitForElementById(elementId, timeout = 180000, interval = 500) {
         return new Promise((resolve, reject) => {
             let elapsedTime = 0;
@@ -1644,15 +1333,9 @@
             check();
         });
     }
-
-    /**
-     * *** MỚI (Task 14): Hàm tìm ID celeb cuối cùng ***
-     */
     function findLastCelebId() {
         const profileCards = document.querySelectorAll('div.profile');
         let lastCelebId = null;
-
-        // Lấy celeb cuối cùng CÓ THỂ THÊM
         profileCards.forEach(card => {
             const addButton = card.querySelector('button.showMoreBtn');
             const idElement = card.querySelector('[id$="_parentElement"]');
@@ -1663,142 +1346,77 @@
         return lastCelebId;
     }
 
-
     /**
-     * *** ĐÃ SỬA (FIX LỖI RESET) ***
-     * Thay đổi logic reset khi mất kết nối 5 lần.
-     * Thay vì reset celeb cuối (gây lỗi), sẽ reset toàn bộ script (giống Timer).
+     * HÀM QUAN SÁT LOG
      */
     async function startRealtimeLogObserver(celebId) {
-        if (webLogObserver) {
-            clearInterval(webLogObserver);
-            webLogObserver = null;
-        }
-
+        if (webLogObserver) { clearInterval(webLogObserver); webLogObserver = null; }
         const webLogId = celebId + '_log';
         let webLogTextarea;
         try {
-            // Chờ cho textarea log của web xuất hiện
             webLogTextarea = await waitForElementById(webLogId, 10000, 250);
         } catch (e) {
             log(`Không tìm thấy nhật ký web (${webLogId}). Không thể đồng bộ real-time.`, 'warn');
             return;
         }
 
-        const scriptLog = document.getElementById('auto-celeb-script-log');
-        if (!scriptLog) return; // Thoát nếu không có script log
+        const scriptLog = document.getElementById('dashboard-script-log');
+        if (!scriptLog) return;
 
-        // *** MỚI (Task 14): Reset bộ đếm lỗi kết nối khi BẮT ĐẦU theo dõi ***
-        // Chỉ reset nếu nó không phải là một phần của quá trình reset celeb (tránh vòng lặp)
         const needsCelebRestart = localStorage.getItem(CONFIG.CELEB_RESTART_KEY) === 'true';
-        if (!needsCelebRestart) {
-            sessionStorage.setItem(CONFIG.CONNECTION_LOST_COUNTER_KEY, '0');
-        }
+        if (!needsCelebRestart) { sessionStorage.setItem(CONFIG.CONNECTION_LOST_COUNTER_KEY, '0'); }
 
         log(`Bắt đầu theo dõi nhật ký của ${celebId}...`, 'info');
-
-        let lastLogContent = ""; // <-- Reset khi bắt đầu theo dõi
+        let lastLogContent = "";
 
         webLogObserver = setInterval(() => {
-            const currentScriptLog = document.getElementById('auto-celeb-script-log');
-            const currentWebLog = document.getElementById(webLogId); // Lấy lại DOM
-
+            const currentScriptLog = document.getElementById('dashboard-script-log');
+            const currentWebLog = document.getElementById(webLogId);
             if (!currentScriptLog || !currentWebLog) {
-                clearInterval(webLogObserver);
-                webLogObserver = null;
-                return;
+                clearInterval(webLogObserver); webLogObserver = null; return;
             }
-
             const newLogContent = currentWebLog.value;
-            let addedText = ""; // <-- Store added text
-
-            // --- LOGIC MỚI ĐÃ SỬA LỖI ---
-            if (newLogContent === lastLogContent) {
-                return; // Không có gì thay đổi
-            }
-
+            let addedText = "";
+            if (newLogContent === lastLogContent) { return; }
             if (newLogContent.length > lastLogContent.length) {
-                // Trường hợp BÌNH THƯỜNG: Log được thêm vào
                 addedText = newLogContent.substring(lastLogContent.length);
-                currentScriptLog.value += addedText; // Thêm vào script log
-
-                // MỚI (Task 2): Thêm vào sessionStorage
-                let storedLog = sessionStorage.getItem(CONFIG.LOG_STORAGE_KEY) || "";
-                storedLog += addedText;
-                sessionStorage.setItem(CONFIG.LOG_STORAGE_KEY, storedLog);
-
-                lastLogContent = newLogContent;
-                currentScriptLog.scrollTop = currentScriptLog.scrollHeight;
             } else if (newLogContent.length < lastLogContent.length) {
-                // Trường hợp ĐẶC BIỆT: Log đã bị XÓA và ghi lại (khi nhấn "Bắt đầu")
-                addedText = newLogContent; // Toàn bộ nội dung là mới
-                currentScriptLog.value += newLogContent; // Thêm toàn bộ nội dung mới
-
-                // MỚI (Task 2): Thêm vào sessionStorage
-                let storedLog = sessionStorage.getItem(CONFIG.LOG_STORAGE_KEY) || "";
-                storedLog += newLogContent;
-                sessionStorage.setItem(CONFIG.LOG_STORAGE_KEY, storedLog);
-
-                lastLogContent = newLogContent; // Đặt lại baseline
-                currentScriptLog.scrollTop = currentScriptLog.scrollHeight;
+                addedText = newLogContent;
             }
-            // --- HẾT LOGIC MỚI ---
 
-            // *** MỚI (Task 14): KIỂM TRA LỖI KẾT NỐI ***
+            currentScriptLog.value += addedText;
+
+            let storedLog = sessionStorage.getItem(CONFIG.LOG_STORAGE_KEY) || "";
+            storedLog += addedText;
+            sessionStorage.setItem(CONFIG.LOG_STORAGE_KEY, storedLog);
+
+            lastLogContent = newLogContent;
+            currentScriptLog.scrollTop = currentScriptLog.scrollHeight;
+
             if (addedText.includes(CONFIG.CONNECTION_LOST_TRIGGER_STRING)) {
                 let counter = parseInt(sessionStorage.getItem(CONFIG.CONNECTION_LOST_COUNTER_KEY) || '0', 10);
                 counter++;
                 sessionStorage.setItem(CONFIG.CONNECTION_LOST_COUNTER_KEY, String(counter));
                 log(`Phát hiện mất kết nối lần ${counter}/${CONFIG.CONNECTION_LOST_MAX_RETRIES}.`, 'warn');
-
-                // ==========================================
-                // ===== BẮT ĐẦU SỬA LỖI (THEO YÊU CẦU) =====
-                // ==========================================
                 if (counter > CONFIG.CONNECTION_LOST_MAX_RETRIES) {
                     log('Mất kết nối quá 5 lần. ĐANG ĐẶT CỜ RESTART (LỖI) VÀ TẢI LẠI TRANG...', 'error');
-                    clearInterval(webLogObserver); // Dừng theo dõi
-                    webLogObserver = null;
-
-                    // --- SỬA LỖI: Dùng logic reset của Timer ---
-                    // 1. Đặt cờ reset của TIMER, không phải cờ celeb
+                    clearInterval(webLogObserver); webLogObserver = null;
                     localStorage.setItem(CONFIG.TIMER_RESTART_KEY, 'true');
-
-                    // 2. Xóa cờ reset celeb (để phòng ngừa)
                     localStorage.removeItem(CONFIG.CELEB_RESTART_KEY);
-
-                    // 3. Xóa Storage Key (để nó chạy lại từ đầu)
                     sessionStorage.removeItem(CONFIG.STORAGE_KEY);
-
-                    // 4. Xóa bộ đếm lỗi
                     sessionStorage.removeItem(CONFIG.CONNECTION_LOST_COUNTER_KEY);
-
-                    // 5. Xóa cả timer đang chạy (nếu có)
                     sessionStorage.removeItem(CONFIG.TIMER_END_TIME_KEY);
-                    // ------------------------------------------
-
-                    // Tải lại trang
                     location.reload();
                 }
-                // ========================================
-                // ===== KẾT THÚC SỬA LỖI =====
-                // ========================================
             }
-            // *** HẾT MỚI (Task 14) ***
-
-        }, 500); // Kiểm tra mỗi 0.5 giây
+        }, 500);
     }
 
-
     /**
-     * *** ĐÃ SỬA (Task 1) ***
-     * Chuyển startRealtimeLogObserver xuống khối if (celebIds.length === 0)
+     * HÀM XỬ LÝ CELEB
      */
     async function processNextCeleb(celebIds, totalCount) {
-        if (webLogObserver) {
-            clearInterval(webLogObserver);
-            webLogObserver = null;
-        }
-
+        if (webLogObserver) { clearInterval(webLogObserver); webLogObserver = null; }
         const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
         if (!state.isRunning) {
             log('Quá trình đã được dừng lại.', 'info');
@@ -1807,6 +1425,7 @@
         if (celebIds.length === 0) {
             sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ ...state, finished: true }));
             updateControlButtonState({ isRunning: true });
+            log('Đã xử lý xong tất cả celeb trong danh sách.', 'success');
             return;
         }
         const currentId = celebIds.shift();
@@ -1831,121 +1450,222 @@
         const celebName = nameElement ? nameElement.textContent.trim() : `ID: ${currentId}`;
         const processedCount = totalCount - celebIds.length;
         const countText = `(${processedCount}/${totalCount})`;
+
         if (!button || !button.textContent.includes('Thêm bạn bè')) {
+            log(`${countText} Bỏ qua ${celebName} (Đã là bạn bè hoặc không tìm thấy nút).`);
             await processNextCeleb(celebIds, totalCount);
             return;
         }
-
         log(`${countText} Đang xử lý: ${celebName}`);
-
         showCelebPopup(celebName, countText);
-        button.click(); // Click "Thêm bạn bè"
+        button.click();
         await sleep(1000);
-
-        // --- MỚI (Task 1): XÓA LỆNH startRealtimeLogObserver(currentId); ở đây ---
-
         const startButton = document.getElementById(currentId + '_startButton');
         if (startButton) {
-            startButton.click(); // Đây là lúc log web bị reset
-            await sleep(2000); // Chờ 2s để log bắt đầu chạy
-
+            startButton.click();
+            await sleep(2000);
             if (celebIds.length === 0) {
-                // ===== ĐÂY LÀ CELEB CUỐI CÙNG =====
                 log(`Đã xử lý celeb cuối cùng: ${celebName}.`, 'success');
-
-                // *** MỚI (Task 1): Bắt đầu theo dõi log CHỈ KHI là celeb cuối ***
                 log(`Bắt đầu theo dõi nhật ký của celeb cuối cùng (${celebName})...`, 'info');
-                startRealtimeLogObserver(currentId); // <-- CHUYỂN XUỐNG ĐÂY
-
+                startRealtimeLogObserver(currentId);
                 sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [], totalCount: totalCount, finished: true }));
                 updateControlButtonState({ isRunning: true });
-
-                // Xóa timeout 5s, để cho nó chạy mãi mãi (hoặc đến khi timer reset)
                 return;
             } else {
-                // ===== CHƯA PHẢI CELEB CUỐI =====
                 const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
                 if (celebToolsLink) {
-                    celebToolsLink.click(); // Trang tải lại, interval tự mất
+                    celebToolsLink.click();
                 } else {
                     log('LỖI: Không tìm thấy link "Celebrity Tools". Dừng script.', 'error');
-                    stopProcess(false); // Dừng nếu không thể tải lại
+                    stopProcess(false);
                 }
             }
         } else {
             log(`KHÔNG TÌM THẤY nút "Bắt đầu" cho ${celebName}. Bỏ qua.`, 'error');
-            if (webLogObserver) clearInterval(webLogObserver); // Dừng theo dõi nếu lỗi
+            if (webLogObserver) clearInterval(webLogObserver);
             await processNextCeleb(celebIds, totalCount);
         }
     }
 
     /**
-     * *** ĐÃ SỬA (Task 2 & 14) ***
-     * Thêm lệnh xóa log cũ và bộ đếm lỗi khi bắt đầu chạy mới
+     * HÀM QUÉT CELEB (v1.7)
      */
-    function startProcess() {
-        // *** MỚI (Task 2): XÓA LOG CŨ KHI BẮT ĐẦU CHẠY MỚI ***
-        sessionStorage.removeItem(CONFIG.LOG_STORAGE_KEY);
-        sessionStorage.removeItem(CONFIG.CONNECTION_LOST_COUNTER_KEY); // <-- MỚI (Task 14)
-
-        // Xóa cả nội dung textarea hiện tại
-        const logTextarea = document.getElementById('auto-celeb-script-log');
-        if (logTextarea) {
-            logTextarea.value = ""; // Xóa sạch
-        }
-        // *** HẾT MỚI (Task 2) ***
-
-        const profileCards = document.querySelectorAll('div.profile');
-        if (profileCards.length === 0) {
-            updateControlButtonState({ isRunning: false });
-            return;
-        }
-        const celebIds = [];
-        let errorCount = 0;
-        profileCards.forEach(card => {
-            const nameElement = card.querySelector('div.profile-name');
+    function scanForCelebs() {
+        const celebs = [];
+        document.querySelectorAll('#celebrityList div.profile').forEach(card => {
             const addButton = card.querySelector('button.showMoreBtn');
             const idElement = card.querySelector('[id$="_parentElement"]');
-            if (nameElement && addButton && idElement) {
-                const celebName = nameElement.textContent.trim();
-                const buttonText = addButton.textContent.trim();
-                if (buttonText.includes('Thêm bạn bè')) {
-                    const celebId = idElement.id.replace('_parentElement', '');
-                    celebIds.push(celebId);
-                }
-            } else {
-                errorCount++;
+
+            if (addButton && idElement && addButton.textContent.includes('Thêm bạn bè')) {
+                const celebId = idElement.id.replace('_parentElement', '');
+
+                const imgEl = card.querySelector('.profile-circle img');
+                const nameEl = card.querySelector('.profile-info .profile-name');
+                const progressEl = card.querySelector('.profile-info .x-progress');
+                const progressTextEl = card.querySelector('.profile-info .x-progress__text');
+
+                const data = {
+                    id: celebId,
+                    name: nameEl ? nameEl.textContent.trim() : 'Không rõ tên',
+                    imgSrc: imgEl ? imgEl.src : '',
+                    progressText: progressTextEl ? progressTextEl.textContent.trim() : '0 / 0',
+                    current: progressEl ? parseInt(progressEl.dataset.current, 10) : 0,
+                    max: progressEl ? parseInt(progressEl.dataset.max, 10) : 1,
+                };
+
+                data.percent = (data.current / data.max) * 100;
+                if (data.percent > 100) data.percent = 100;
+                if (isNaN(data.percent) || data.max === 0) data.percent = 0;
+
+                data.progressColor = (data.current >= data.max) ? 'red' : '#46ce46';
+
+                celebs.push(data);
             }
         });
-        if (errorCount > 0) {
-            log(`Đã bỏ qua ${errorCount} thẻ do lỗi cấu trúc (thiếu tên, nút hoặc ID).`, 'warn');
-        }
-        if (celebIds.length === 0) {
-            log('Không tìm thấy celeb nào có thể thêm. Dừng lại.', 'info');
-            updateControlButtonState({ isRunning: false });
+        return celebs;
+    }
+
+
+    /**
+     * HÀM MỚI (Cập nhật v1.9): Mở Bảng điều khiển và chèn list item mới
+     */
+    function openDashboardModal() {
+        const modal = document.getElementById('celeb-dashboard-modal');
+        const overlay = document.getElementById('auto-celeb-modal-overlay');
+        const listContainer = document.getElementById('celeb-selection-list');
+        const logTextarea = document.getElementById('dashboard-script-log');
+        const selectAllInput = document.getElementById('celeb-select-all-input');
+
+        if (!modal || !overlay || !listContainer || !logTextarea) {
+            alert('Lỗi: Không thể tải Bảng điều khiển. Vui lòng tải lại trang.');
             return;
         }
+
+        // 1. Quét Celeb
+        const celebs = scanForCelebs();
+        listContainer.innerHTML = '';
+        selectAllInput.checked = true;
+
+        if (celebs.length === 0) {
+            listContainer.innerHTML = '<p style="color: #aaa;">Không tìm thấy celeb nào để thêm.</p>';
+        } else {
+            // 2. Tạo item (v1.9)
+            celebs.forEach(celeb => {
+                const item = document.createElement('div');
+                item.className = 'celeb-list-item-new selected';
+                item.dataset.celebId = celeb.id;
+                const inputId = `celeb-toggle-${celeb.id}`;
+
+                item.innerHTML = `
+                    <div class="celeb-list-profile-image">
+                        <img src="${celeb.imgSrc}" alt="${celeb.name}">
+                        <div class="celeb-list-icon">✦</div>
+                    </div>
+                    <div class="celeb-list-profile-info">
+                        <div class="celeb-list-profile-name">${celeb.name}</div>
+                        <div class="celeb-list-progress">
+                            <div class="celeb-list-progress-bar" style="width: ${celeb.percent}%; background-color: ${celeb.progressColor};"></div>
+                        </div>
+                        <div class="celeb-list-progress-text">${celeb.progressText}</div>
+                    </div>
+                    <div class="celeb-item-toggle-wrapper toggle-switch">
+                        <input type="checkbox" value="${celeb.id}" id="${inputId}" class="celeb-item-toggle-input toggle-switch-input sr-only" checked>
+                        <label for="${inputId}" class="toggle-switch-label">
+                            <span class="toggle-switch-handle"></span>
+                        </label>
+                    </div>
+                `;
+
+                const toggleInput = item.querySelector('.celeb-item-toggle-input');
+                const toggleSwitch = item.querySelector('.toggle-switch'); // <div> wrapper của toggle
+
+                // SỬA LỖI CLICK (v1.9)
+                // Click vào bất cứ đâu trên item
+                item.addEventListener('click', () => {
+                    toggleInput.checked = !toggleInput.checked;
+                    toggleInput.dispatchEvent(new Event('change'));
+                });
+
+                // Click vào chính cái toggle
+                toggleSwitch.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Ngăn sự kiện click của 'item'
+                });
+
+                // Khi toggle thay đổi
+                toggleInput.addEventListener('change', () => {
+                    item.classList.toggle('selected', toggleInput.checked);
+                    syncSelectAllToggle(); // Đồng bộ "Chọn tất cả"
+                });
+
+                listContainer.appendChild(item);
+            });
+        }
+
+        // 3. Cập nhật trạng thái timer
+        loadTimerConfig();
+
+        // 4. Tải log
+        const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
+        if (!state.isRunning) {
+            logTextarea.value = '';
+            log('Sẵn sàng chạy. Vui lòng chọn celeb và nhấn "Bắt đầu Auto Celeb".', 'info');
+        } else {
+            loadPersistentLog();
+        }
+
+        // 5. Cập nhật nút
+        updateControlButtonState(state);
+
+        // 6. Hiển thị modal
+        overlay.style.display = 'block';
+        modal.style.display = 'block';
+    }
+
+
+    /**
+     * HÀM BẮT ĐẦU TỪ MODAL (v1.9)
+     */
+    function startProcessFromModal() {
+        sessionStorage.removeItem(CONFIG.LOG_STORAGE_KEY);
+        sessionStorage.removeItem(CONFIG.CONNECTION_LOST_COUNTER_KEY);
+        log('Đang bắt đầu quá trình...', 'rocket');
+
+        // 1. Lấy danh sách celeb đã chọn (từ class mới)
+        const selectedToggles = document.querySelectorAll('.celeb-item-toggle-input:checked');
+        const celebIds = Array.from(selectedToggles).map(cb => cb.value);
+
+        if (celebIds.length === 0) {
+            log('Không có celeb nào được chọn. Vui lòng chọn ít nhất một celeb.', 'error');
+            return;
+        }
+
+        // 2. KHÔNG ĐÓNG Modal
+
+        // 3. Lưu trạng thái và bắt đầu
         const totalCount = celebIds.length;
+        log(`Đã chọn ${totalCount} celeb để chạy...`, 'info');
         sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify({ isRunning: true, celebIds: [...celebIds], totalCount: totalCount }));
         updateControlButtonState({ isRunning: true });
+
+        // 4. Kích hoạt hẹn giờ (nếu bật)
         if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
             startReloadTimer(currentTimerConfig.minutes);
         }
+
+        // 5. Bắt đầu xử lý
         processNextCeleb(celebIds, totalCount);
-    };
+    }
 
     /**
-     * *** ĐÃ SỬA (Task 2 & 14) ***
-     * Thêm lệnh xóa log và bộ đếm lỗi khi dừng
+     * HÀM DỪNG
      */
-    function stopProcess(shouldReload = true) {
-        if (webLogObserver) clearInterval(webLogObserver); // <-- MỚI: Dừng theo dõi
+    function stopProcess(shouldReload = false) {
+        if (webLogObserver) clearInterval(webLogObserver);
         cancelReloadTimer();
         localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
-        localStorage.removeItem(CONFIG.CELEB_RESTART_KEY); // <-- MỚI (Task 14)
+        localStorage.removeItem(CONFIG.CELEB_RESTART_KEY);
         sessionStorage.removeItem(CONFIG.STORAGE_KEY);
-        sessionStorage.removeItem(CONFIG.LOG_STORAGE_KEY); // *** MỚI (Task 2): XÓA LOG KHI DỪNG ***
-        sessionStorage.removeItem(CONFIG.CONNECTION_LOST_COUNTER_KEY); // <-- MỚI (Task 14)
+        sessionStorage.removeItem(CONFIG.CONNECTION_LOST_COUNTER_KEY);
 
         log('Đã dừng quá trình tự động theo yêu cầu người dùng.', 'info');
         if (shouldReload) {
@@ -1956,28 +1676,19 @@
         }
     }
 
-    // --- MỚI: CÁC HÀM LOGIC CHÍNH (FRIENDS) (ĐÃ SỬA LỖI) ---
-
-    // *** BẮT ĐẦU: Code mới lấy từ tiện ích ***
-    const SELECTORS = {
+    // --- (Các hàm logic cho trang Friends không đổi) ---
+    const FRIEND_SELECTORS = {
         searchInput: '#usernameSearchInput',
         searchButton: '#usernameSearchSubmit',
         profileResultContainer: '#usernameSearchStatus .profile',
-        actionButton: '#usernameSearchStatus .profile button', // ID của nút là 'usernameAction'
+        actionButton: '#usernameSearchStatus .profile button',
     };
-
-    /**
-     * Hàm chờ đợi element (lấy từ tiện ích, mạnh mẽ hơn)
-     * Chờ 1 element khớp với selector VÀ đang hiển thị
-     */
     function waitForElement(selector, timeout = 3000) {
         return new Promise((resolve, reject) => {
             let interval = setInterval(() => {
                 const element = document.querySelector(selector);
-                // Kiểm tra element và xem nó có thực sự hiển thị không (offsetParent != null)
                 if (element && element.offsetParent !== null) {
-                    clearInterval(timeoutId);
-                    clearInterval(interval);
+                    clearInterval(timeoutId); clearInterval(interval);
                     resolve(element);
                 }
             }, 100);
@@ -1987,171 +1698,64 @@
             }, timeout);
         });
     }
-    // *** KẾT THÚC: Code mới lấy từ tiện ích ***
-
-
-    /**
-     * MỚI: Cài đặt logic cho tool tìm bạn bè (SỬA LỖI)
-     * *** ĐÃ SỬA: Dùng logic lặp và kiểm tra nút chính xác ***
-     * *** ĐÃ SỬA (THEO YÊU CẦU MỚI): Thay đổi logic lặp/dừng ***
-     */
     function setupFriendToolLogic() {
         const startButton = document.getElementById('auto-friend-start-button');
-        // *** SỬA ĐỔI: Lấy <select> thay vì <input> ***
         const celebSelect = document.getElementById('friend-celeb-select');
-
         if (!startButton || !celebSelect) {
             console.error('[Auto Locket Celeb] Không tìm thấy UI tool bạn bè (nút hoặc select).');
             return;
         }
-
         const stopFriendSearchLoop = () => {
-            if (friendSearchLoopId) {
-                clearInterval(friendSearchLoopId);
-                friendSearchLoopId = null;
-            }
+            if (friendSearchLoopId) { clearInterval(friendSearchLoopId); friendSearchLoopId = null; }
             isFriendSearchRunning = false;
             startButton.textContent = 'Bắt đầu Lặp';
             startButton.classList.remove('running');
-            celebSelect.disabled = false; // Cho phép chọn lại
-            log('Đã dừng lặp tìm kiếm.', 'info');
+            celebSelect.disabled = false;
+            console.log('[Auto Locket Celeb] ➡️ Đã dừng lặp tìm kiếm.', 'info');
         };
-
-        // *** LOGIC MỚI (THEO YÊU CẦU): LẶP/DỪNG CÓ ĐIỀU KIỆN ***
         const performSearch = async (uid) => {
             try {
-                // 1. Kiểm tra UID hợp lệ (được truyền vào)
-                if (!uid || uid === "") {
-                    log('Lỗi: UID không hợp lệ. Bỏ qua vòng này và tiếp tục lặp.', 'error');
-                    return; // Tiếp tục lặp
-                }
-
-                // 2. Tìm các phần tử của trang
-                const pageInput = await waitForElement(SELECTORS.searchInput, 5000);
-                const pageButton = await waitForElement(SELECTORS.searchButton, 5000);
-
-                // 3. Xóa kết quả cũ (nếu có)
-                const oldResult = document.querySelector(SELECTORS.profileResultContainer);
+                const pageInput = await waitForElement(FRIEND_SELECTORS.searchInput, 5000);
+                const pageButton = await waitForElement(FRIEND_SELECTORS.searchButton, 5000);
+                const oldResult = document.querySelector(FRIEND_SELECTORS.profileResultContainer);
                 if (oldResult) oldResult.remove();
-
-                // 4. Nhập và nhấn "Tìm kiếm"
-                // log(`Đang tìm kiếm: ${uid}`, 'info'); // Tắt log này cho đỡ spam
                 pageInput.value = uid;
                 pageInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
                 pageButton.click();
-
-                // 5. Chờ kết quả xuất hiện
-                await waitForElement(SELECTORS.profileResultContainer, 5000);
-                const actionButton = document.querySelector(SELECTORS.actionButton);
-
+                await waitForElement(FRIEND_SELECTORS.profileResultContainer, 5000);
+                const actionButton = document.querySelector(FRIEND_SELECTORS.actionButton);
                 if (actionButton) {
                     const buttonText = actionButton.textContent.trim();
-                    log(`Tìm thấy nút: "${buttonText}"`);
-
-                    // *** LOGIC PHÂN LOẠI NÚT MỚI ***
-
-                    // ===== 1. ĐIỀU KIỆN DỪNG (Đã là bạn / Chờ xác nhận) =====
                     if (buttonText.includes('Bạn bè') || buttonText.includes('Đã yêu cầu')) {
-                        log('Phát hiện "Bạn bè" hoặc "Đã yêu cầu". DỪNG CÔNG CỤ.', 'success');
-                        stopFriendSearchLoop(); // DỪNG LẶP
-                        return;
-
-                    // ===== 2. ĐIỀU KIỆN BỎ QUA (Hàng chờ / Hủy thông báo) =====
-                    } else if (buttonText.includes('Thêm vào hàng chờ') || buttonText.includes('Hủy nhận thông báo')) {
-                        log(`Bỏ qua nút "${buttonText}". Tiếp tục lặp...`, 'info');
-                        return; // TIẾP TỤC LẶP (để interval chạy lại)
-
-                    // ===== 3. ĐIỀU KIỆN HÀNH ĐỘNG (Thêm bạn bè) =====
+                        stopFriendSearchLoop(); return;
                     } else if (buttonText.includes('Thêm bạn bè')) {
-                        log(`Đang nhấn 'Thêm bạn bè', đang xác nhận...`, 'rocket');
                         actionButton.click();
-
-                        // Vòng lặp xác nhận (Chờ tối đa 5 giây)
-                        let isVerified = false;
-                        for (let i = 0; i < 10; i++) { // Thử 10 lần x 0.5s = 5s
-                            await new Promise(r => setTimeout(r, 500));
-                            const updatedButton = document.querySelector(SELECTORS.actionButton);
-
-                            if (!updatedButton) {
-                                log('Nút đã biến mất sau khi click.', 'warn');
-                                break;
-                            }
-
-                            const updatedText = updatedButton.textContent.trim();
-                            if (updatedText.includes('Đã yêu cầu') || updatedText.includes('Bạn bè')) {
-                                log(`Xác nhận thành công: "${updatedText}". DỪNG CÔNG CỤ.`, 'success');
-                                isVerified = true;
-                                break;
-                            }
-                        }
-
-                        // Quyết định dừng hay tiếp tục sau khi click
-                        if (isVerified) {
-                            stopFriendSearchLoop(); // DỪNG LẶP
-                        } else {
-                            log('Không thể xác nhận nút đổi. Tiếp tục lặp để thử lại...', 'warn');
-                            // Không dừng, để interval chạy lại
-                        }
-                        return;
-
-                    // ===== 4. CÁC TRƯỜNG HỢP KHÁC (Full, nút lạ, v.v.) =====
-                    } else {
-                        log(`Không nhận diện được nút "${buttonText}". Tiếp tục lặp...`, 'warn');
-                        return; // TIẾP TỤC LẶP
+                        await sleep(1500);
                     }
-
-                } else {
-                    // Không tìm thấy nút (user không tồn tại?)
-                    log('Không tìm thấy nút hành động (user không tồn tại?). Tiếp tục lặp...', 'warn');
-                    return; // TIẾP TỤC LẶP
                 }
-
-            } catch (e) {
-                // 7. Xử lý lỗi (hết giờ chờ)
-                log(`Lỗi khi tìm kiếm: ${e.message}. Tiếp tục lặp...`, 'error');
-                return; // TIẾP TỤC LẶP
-            }
+            } catch (e) { /* Bỏ qua lỗi, tiếp tục lặp */ }
         };
-        // *** HẾT LOGIC MỚI ***
-
         const startFriendSearchLoop = (uid) => {
-            if (isFriendSearchRunning) return; // Đang chạy
-
+            if (isFriendSearchRunning) return;
             isFriendSearchRunning = true;
             startButton.textContent = 'Dừng Lặp';
             startButton.classList.add('running');
-            celebSelect.disabled = true; // Không cho đổi celeb khi đang chạy
-            log(`Bắt đầu lặp tìm kiếm cho: ${uid}`, 'rocket');
-
-            // *** LOGIC LẶP (Request 1) ***
-            performSearch(uid); // Chạy 1 lần ngay lập tức
-            friendSearchLoopId = setInterval(() => performSearch(uid), 3000); // Lặp lại mỗi 3 giây
+            celebSelect.disabled = true;
+            performSearch(uid);
+            friendSearchLoopId = setInterval(() => performSearch(uid), 3000);
         };
-
-        // Listener cho nút "Bắt đầu Lặp"
         startButton.addEventListener('click', () => {
-            if (isFriendSearchRunning) {
-                stopFriendSearchLoop();
-            } else {
-                // *** SỬA ĐỔI: Lấy UID từ <select> ***
+            if (isFriendSearchRunning) { stopFriendSearchLoop(); }
+            else {
                 const selectedUid = celebSelect.value;
-                if (!selectedUid || selectedUid === "") {
-                    // *** SỬA ĐỔI: Dùng log thay vì alert ***
-                    log('Vui lòng chọn một Celeb từ danh sách.', 'warn');
-                    return;
-                }
+                if (!selectedUid || selectedUid === "") { return; }
                 startFriendSearchLoop(selectedUid);
             }
         });
-
-        // Không cần listener 'focus' cho select box nữa
     }
-
-    // *** MỚI: Hàm nạp Celeb vào Dropdown ***
     function populateCelebDropdown() {
         const celebSelect = document.getElementById('friend-celeb-select');
         if (!celebSelect) return;
-
         CELEB_LIST.forEach(celeb => {
             const option = document.createElement('option');
             option.value = celeb.uid;
@@ -2161,162 +1765,125 @@
     }
 
 
-    // --- Main Execution (ĐÃ CẬP NHẬT) ---
+    // --- HÀM CHẠY CHÍNH ---
     (function main() {
-        console.log('[Auto Locket Celeb] ➡️ Userscript đã được kích hoạt (v_fixed_left_imgur).');
+        console.log(`[Auto Locket Celeb] ➡️ Userscript đã được kích hoạt (${CONFIG.SCRIPT_VERSION}).`);
 
-        // MỚI: Luôn chạy trình kiểm tra popup (cũ và mới)
-        setInterval(closeNotificationPopup, 1000); // Kiểm tra mỗi giây
+        setInterval(closeNotificationPopup, 1000);
 
-        // 1. Luôn tạo UI (UI sẽ tự điều chỉnh theo trang)
+        // 1. Luôn tạo UI
         try {
             injectNewStyles();
             createMainControlUI();
             loadTimerConfig();
             setupMainUIControls();
-            loadPersistentLog(); // *** MỚI (Task 2): GỌI HÀM TẢI LOG ***
         } catch (e) {
             console.error('[Auto Locket Celeb] Lỗi khi khởi tạo UI chính: ', e);
             return;
         }
 
-        // --- MỚI: Kiểm tra Key (LOGIC ĐÃ SỬA) ---
+        // 2. Kiểm tra Key (Như cũ)
         const storedKey = localStorage.getItem(CONFIG.KEY_STORAGE_KEY);
         const isKeyValidated = (storedKey === CONFIG.SECRET_KEY);
-
         const container = document.getElementById('auto-celeb-main-container');
         if (isKeyValidated) {
             container.classList.remove('locked');
         } else {
             container.classList.add('locked');
-            // *** SỬA LỖI (LOGIC): Xóa key cũ nếu không khớp ***
             localStorage.removeItem(CONFIG.KEY_STORAGE_KEY);
         }
-        // --- Hết: Kiểm tra Key ---
 
+        // 3. Chạy logic tùy trang (chỉ khi key hợp lệ)
+        if (!isKeyValidated) {
+             console.log('[Auto Locket Celeb] ➡️ Script bị khóa. Vui lòng nhập key.');
+             return;
+        }
 
-        // 2. Chỉ chạy logic chính (bắt đầu, dừng, chạy ngầm) tùy theo trang
         if (window.location.href === CONFIG.TARGET_PAGE) {
+            // ----- LOGIC TRANG CELEBRITY -----
+            runCelebLogic();
 
-            const controlButton = document.getElementById('auto-celeb-control-button');
-            if (isKeyValidated && !controlButton) {
-                // Chỉ báo lỗi nếu key đã hợp lệ mà không tìm thấy nút
-                console.error('[Auto Locket Celeb] ➡️ Đã kích hoạt nhưng không tìm thấy control button trên trang target.');
-                return;
-            }
-
-            if(controlButton) {
-                controlButton.addEventListener('click', () => {
-                    if (window.location.href !== CONFIG.TARGET_PAGE) {
-                        log('Đang ở trang khác. Chuyển hướng về celebrity.html...');
-                        window.location.href = CONFIG.TARGET_PAGE;
-                        return;
-                    }
-                    const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
-                    if (state.isRunning) {
-                        stopProcess();
-                    } else {
-                        startProcess();
-                    }
-                });
-            }
-
-            // Chỉ chạy logic tự động nếu key đã được kích hoạt
-            if (isKeyValidated) {
-                runCelebLogic();
-            }
-
-        } else if (window.location.href === CONFIG.FRIENDS_PAGE) { // <-- MỚI
+        } else if (window.location.href === CONFIG.FRIENDS_PAGE) {
+            // ----- LOGIC TRANG FRIENDS -----
             console.log('[Auto Locket Celeb] ➡️ Đang ở trang Friends.');
-            if (isKeyValidated) {
-                // SỬA LẠI: Chờ DOM của trang friends tải xong
-                // Đợi ô input gốc của trang xuất hiện (dùng logic mới)
-                const checkPageReady = setInterval(async () => {
-                    try {
-                        // Dùng hàm chờ mới để kiểm tra
-                        await waitForElement(SELECTORS.searchInput, 500);
-                        await waitForElement(SELECTORS.searchButton, 500);
+            const checkPageReady = setInterval(async () => {
+                try {
+                    await waitForElement(FRIEND_SELECTORS.searchInput, 500);
+                    await waitForElement(FRIEND_SELECTORS.searchButton, 500);
+                    clearInterval(checkPageReady);
+                    populateCelebDropdown();
+                    setupFriendToolLogic();
+                } catch (e) { /* Vẫn chờ... */ }
+            }, 500);
 
-                        // Nếu cả 2 đều tồn tại, dừng interval và setup
-                        clearInterval(checkPageReady);
-
-                        // *** SỬA ĐỔI: Thêm 2 hàm này ***
-                        populateCelebDropdown(); // Nạp Celeb vào <select>
-                        setupFriendToolLogic(); // Kích hoạt listener cho tool mới
-                    } catch (e) {
-                        // Vẫn chờ...
-                    }
-                }, 500);
-            }
         } else {
-            // Ở các trang khác, không cần làm gì thêm
+            // ----- LOGIC CÁC TRANG KHÁC -----
             console.log('[Auto Locket Celeb] ➡️ Đang ở trang phụ.');
         }
 
 
         /**
-         * *** ĐÃ SỬA (Task 14): Thêm logic check 'needsCelebRestart' ***
+         * LOGIC CHÍNH TRANG CELEB
          */
         async function runCelebLogic() {
             try {
                 await waitForElementById('usernameSearch', 20000);
                 scrollToCelebSection();
 
-                let currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}'); // <-- Sửa thành 'let'
+                const openDashboardButton = document.getElementById('auto-celeb-open-dashboard-btn');
+                if (!openDashboardButton) {
+                    console.error('[Auto Locket Celeb] ➡️ Không tìm thấy nút Mở Bảng Điều Khiển.');
+                    return;
+                }
+
+                // Gắn listener cho nút chính
+                openDashboardButton.addEventListener('click', () => {
+                    openDashboardModal(); // Mở Modal
+                });
+
+                // --- Xử lý tự động chạy lại (Resume) ---
+                let currentState = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
                 const needsTimerRestart = localStorage.getItem(CONFIG.TIMER_RESTART_KEY) === 'true';
-                const needsCelebRestart = localStorage.getItem(CONFIG.CELEB_RESTART_KEY) === 'true'; // <-- MỚI
+                const needsCelebRestart = localStorage.getItem(CONFIG.CELEB_RESTART_KEY) === 'true';
 
                 updateControlButtonState(currentState);
-
 
                 if (needsTimerRestart) {
                     log('PHÁT HIỆN CỜ RESTART (TIMER). Tự động bắt đầu sau 10 giây...', 'timer');
                     localStorage.removeItem(CONFIG.TIMER_RESTART_KEY);
-                    localStorage.removeItem(CONFIG.CELEB_RESTART_KEY); // Xóa luôn cờ reset celeb nếu có
+                    localStorage.removeItem(CONFIG.CELEB_RESTART_KEY);
+                    showPreRunCountdown(() => {
+                        openDashboardModal();
+                        startProcessFromModal();
+                    });
 
-                    // Xóa log cũ khi restart đầy đủ (đã chuyển vào startProcess)
-                    showPreRunCountdown(startProcess);
-
-                } else if (needsCelebRestart) { // <-- MỚI (Task 14)
+                } else if (needsCelebRestart) {
                     log('PHÁT HIỆN CỜ RESET CELEB. Đang chạy lại celeb cuối...', 'warn');
                     localStorage.removeItem(CONFIG.CELEB_RESTART_KEY);
-
                     const lastCelebId = findLastCelebId();
-
                     if (lastCelebId && currentState.isRunning) {
                         log(`Tìm thấy celeb cuối: ${lastCelebId}. Chuẩn bị chạy lại...`, 'info');
-                        // Sửa lại state để chạy lại celeb cuối
                         currentState.finished = false;
                         currentState.celebIds = [lastCelebId];
-                        // Ghi đè lại state
                         sessionStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(currentState));
                     } else {
                         log('Không tìm thấy celeb cuối để reset, hoặc script đã dừng.', 'error');
                     }
-                    // Sẽ tự động rơi vào block tiếp theo
-
                 }
 
-                // --- Logic chạy chính (sẽ bắt cả lần chạy thường và chạy reset celeb) ---
+                // Logic tiếp tục chạy (resume) khi tải lại trang
+                if (currentState.isRunning) {
+                    log('Tiếp tục xử lý tiến trình đang chạy...', 'info');
+                    openDashboardModal(); // Mở modal để hiển thị log
 
-                if (currentState.isRunning && !currentState.finished && currentState.celebIds && currentState.celebIds.length > 0) {
-                    // (Chạy bình thường / chạy lại celeb cuối)
-                    log('Tiếp tục xử lý danh sách celeb...', 'info'); // <-- DÒNG NÀY SẼ BỊ LỌC
-                    if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
-                        startReloadTimer(currentTimerConfig.minutes);
-                    }
-                    processNextCeleb(currentState.celebIds, currentState.totalCount);
-
-                } else if (currentState.isRunning && currentState.finished) {
-                    // (Đã chạy xong, đang theo dõi log celeb cuối)
-                    log('Đã hoàn thành. Đang ở chế độ theo dõi celeb cuối.', 'info');
                     if (currentTimerConfig.enabled && currentTimerConfig.minutes > 0) {
                         startReloadTimer(currentTimerConfig.minutes);
                     }
 
-                    const state = JSON.parse(sessionStorage.getItem(CONFIG.STORAGE_KEY) || '{}');
-                    if(state.finished && (!state.celebIds || state.celebIds.length === 0)) {
-                        const lastCelebId = findLastCelebId(); // Dùng helper function
+                    if (!currentState.finished && currentState.celebIds && currentState.celebIds.length > 0) {
+                        processNextCeleb(currentState.celebIds, currentState.totalCount);
+                    } else if (currentState.finished) {
+                        const lastCelebId = findLastCelebId();
                         if (lastCelebId) {
                             if (!webLogObserver) {
                                 log('Đang theo dõi nhật ký của celeb cuối cùng...', 'info');
@@ -2328,7 +1895,6 @@
 
             } catch (error) {
                 log('Kiểm tra 20s: HẾT GIỜ. Container (usernameSearch) không tải. Đang reload trang...', 'error');
-
                 const celebToolsLink = document.querySelector('a.nav-link[href="celebrity.html"]');
                 if (celebToolsLink) {
                     log('Đang click "Celebrity Tools" để tải lại.');
