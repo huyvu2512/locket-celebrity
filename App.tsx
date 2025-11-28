@@ -22,15 +22,22 @@ interface ScriptInfo {
 }
 
 const LocketCelebrityPage: React.FC = () => {
+  const SCRIPT_URL = 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/script/tampermonkey.user.js';
+
   const [activeTab, setActiveTab] = useState<Tab>('web');
-  const [scriptInfo, setScriptInfo] = useState<ScriptInfo | null>(null);
+  const [scriptInfo, setScriptInfo] = useState<ScriptInfo | null>({
+    name: 'Auto Locket Celeb (v1.3)',
+    version: '1.3',
+    displayVersion: '1.3',
+    description: 'Tự động kết bạn với tất cả Celeb, hẹn giờ tùy chỉnh để khởi động lại web.',
+    installUrl: SCRIPT_URL,
+  });
   const [error, setError] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   
   // Initialize theme, default to dark
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  const SCRIPT_URL = 'https://raw.githubusercontent.com/huyvu2512/locket-celebrity/main/script/tampermonkey.user.js';
 
   // Effect to apply theme class to html
   useEffect(() => {
@@ -45,43 +52,6 @@ const LocketCelebrityPage: React.FC = () => {
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
-
-  useEffect(() => {
-    const fetchScriptInfo = async () => {
-      try {
-        const response = await fetch(SCRIPT_URL);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const scriptText = await response.text();
-        const nameMatch = scriptText.match(/@name\s+(.*)/);
-        const versionMatch = scriptText.match(/@version\s+(.*)/);
-        const descriptionMatch = scriptText.match(/@description\s+(.*)/);
-
-        const name = nameMatch ? nameMatch[1].trim() : 'Không rõ';
-        const version = versionMatch ? versionMatch[1].trim() : 'Không rõ';
-        const description = descriptionMatch ? descriptionMatch[1].trim() : 'Không có mô tả.';
-
-        const nameVersionMatch = name.match(/\(v(.*)\)/);
-        const displayVersion = nameVersionMatch ? nameVersionMatch[1].trim() : version;
-
-        setScriptInfo({
-          name,
-          version,
-          displayVersion,
-          description,
-          installUrl: SCRIPT_URL,
-        });
-      } catch (e) {
-        if (e instanceof Error) {
-            setError(`Không thể tải thông tin script: ${e.message}`);
-        } else {
-            setError('Đã xảy ra lỗi không xác định.');
-        }
-      }
-    };
-    fetchScriptInfo();
-  }, []);
 
   const handleCopyLink = async () => {
     if (scriptInfo?.installUrl) {
@@ -615,3 +585,4 @@ const LocketCelebrityPage: React.FC = () => {
 };
 
 export default LocketCelebrityPage;
+    
