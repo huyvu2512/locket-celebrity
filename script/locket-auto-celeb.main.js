@@ -220,12 +220,6 @@
                 max-height: 90vh; overflow: visible;
                 transition: max-height 0.3s ease, padding-top 0.3s ease, padding-bottom 0.3s ease, box-shadow 0.3s;
             }
-            #auto-celeb-main-container,
-            #auto-celeb-modal-overlay,
-            #celeb-dashboard-modal,
-            .auto-celeb-modal {
-                user-select: none; /* Ngăn bôi đen văn bản trên toàn bộ script */
-            }
             #auto-celeb-main-container::before,
             #auto-celeb-main-container::after {
                 content: '';
@@ -419,8 +413,6 @@
             #auto-celeb-main-container.locked #auto-celeb-actions-wrapper,
             #auto-celeb-main-container.locked #auto-celeb-redirect-buttons,
             #auto-celeb-main-container.locked #auto-friend-tool-wrapper { display: none; }
-            #auto-celeb-main-container.locked #auto-celeb-login-notice,
-            #auto-celeb-main-container.locked #auto-celeb-redirect-notice,
             #auto-celeb-main-container.locked #auto-celeb-footer-buttons { display: none; }
             #auto-celeb-main-container:not(.locked) #auto-celeb-key-wall { display: none; }
             #auto-celeb-key-wall { display: flex; flex-direction: column; align-items: center; gap: 15px; padding: 10px 0; }
@@ -438,17 +430,16 @@
             #key-input-field {
                 width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
                 border-radius: 10px; padding: 12px 15px; font-size: 16px; color: white;
-                user-select: text; /* Cho phép bôi đen văn bản trong input */
                 font-family: 'Inter', sans-serif; box-sizing: border-box;
             }
             #key-input-field::placeholder { color: #888; }
             #btn-submit-key {
                 width: 100%; padding: 12px 14px; border-radius: 14px; border: none;
                 color: white; font-weight: 600; font-size: 16px; cursor: pointer;
-                background: linear-gradient(135deg, #f472b6, #ec4899);
-                box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4); transition: all 0.25s ease;
+                background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+                box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4); transition: all 0.25s ease;
             }
-            #btn-submit-key:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(236, 72, 153, 0.55); }
+            #btn-submit-key:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(139, 92, 246, 0.55); }
             #key-error-message { font-size: 14px; color: #ef4444; font-weight: 600; margin: -5px 0 0 0; display: none; }
             @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
             .shake { animation: shake 0.3s ease; border-color: #ef4444 !important; }
@@ -1119,7 +1110,6 @@
             #dashboard-script-log {
                 width: 100%; resize: none; margin: 0; font-family: Consolas, 'Courier New', monospace;
                 font-size: 12px; font-weight: bold; background-color: #111; color: #eee;
-                user-select: text !important; /* Cho phép bôi đen văn bản trong log */
                 border: 1px solid #444; border-radius: 8px; box-sizing: border-box; padding: 8px; flex-grow: 1;
             }
             #dashboard-footer-buttons { display: flex; justify-content: space-between; gap: 8px; flex-shrink: 0; }
@@ -1544,7 +1534,6 @@
         let scrollLeft;
 
         container.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // Ngăn chặn cuộn trang khi bắt đầu kéo
             isDown = true;
             container.classList.add('dragging');
             startX = e.pageX - container.offsetLeft;
@@ -1621,11 +1610,6 @@
         const container = document.createElement('div');
         container.id = 'auto-celeb-main-container';
 
-        // Khôi phục trạng thái thu nhỏ từ sessionStorage
-        if (sessionStorage.getItem('autoCelebCollapsedState') === 'true') {
-            container.classList.add('collapsed');
-        }
-
         container.innerHTML = `
             <span class="lc-ambient-glow glow-top"></span>
             <span class="lc-ambient-glow glow-bottom"></span>
@@ -1690,7 +1674,7 @@
             <h3 id="key-wall-title">Kích hoạt Script</h3>
             <p id="key-wall-message">Để sử dụng script, vui lòng nhập key kích hoạt.<br>Truy cập kênh chat messenger để nhận key.</p>
             <a id="btn-get-key" href="${CONFIG.MESSENGER_LINK}" target="_blank">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" style="flex-shrink: 0;"><path d="M12 0C5.373 0 0 5.373 0 12C0 18.627 5.373 24 12 24C18.627 24 24 18.627 24 12C24 5.373 18.627 0 12 0ZM10.33 17.89L7.47 15.03L12.53 9.97L15.39 12.83L10.33 17.89ZM16.53 11.69L14.25 9.41L11.39 6.55L14.25 3.69L19.31 8.75L16.53 11.69Z"></path></svg>
                 Lấy Key tại Messenger
             </a>
             <input type="text" id="key-input-field" placeholder="Nhập key...">
@@ -1712,7 +1696,7 @@
                         </div>
                         <div class="action-btn-content">
                             <span class="action-btn-label">Mở Bảng Điều Khiển</span>
-                            <span class="action-btn-subtitle">Tùy chỉnh & Tự động</span>
+                            <span class="action-btn-subtitle">Tùy chỉnh & Cài đặt</span>
                         </div>
                     </div>
                     <div class="action-btn-chevron-circle">
@@ -1726,7 +1710,7 @@
                         </div>
                         <div class="action-btn-content">
                             <span class="action-btn-label">Mở Bảng Thống Kê</span>
-                            <span class="action-btn-subtitle">Thống kê & Phân tích</span>
+                            <span class="action-btn-subtitle">Biểu đồ & Phân tích</span>
                         </div>
                     </div>
                     <div class="action-btn-chevron-circle">
@@ -2061,45 +2045,8 @@
         const mainContainer = document.getElementById('auto-celeb-main-container');
         const collapseToggle = document.getElementById('auto-celeb-collapse-toggle');
         const headerContent = document.getElementById('auto-celeb-header-content');
-        const toggleCollapse = (e) => {
-            const isCollapsing = !mainContainer.classList.contains('collapsed');
-            mainContainer.classList.toggle('collapsed');
-
-            // Lưu trạng thái thu nhỏ vào sessionStorage
-            sessionStorage.setItem('autoCelebCollapsedState', isCollapsing ? 'true' : 'false');
-
-            // Nếu đang thu nhỏ, đóng tất cả các bảng đang mở
-            if (isCollapsing) {
-                const dashboardModal = document.getElementById('celeb-dashboard-modal');
-                const infoModal = document.getElementById('modal-information');
-                const openDashboardButton = document.getElementById('auto-celeb-open-dashboard-btn');
-                const infoButton = document.getElementById('auto-celeb-info-btn');
-
-                if (dashboardModal && dashboardModal.style.display === 'block') {
-                    dashboardModal.style.display = 'none';
-                    const label = openDashboardButton.querySelector('.action-btn-label');
-                    if(label) label.textContent = 'Mở Bảng Điều Khiển';
-                    openDashboardButton.classList.remove('close-mode');
-                    const chevron = openDashboardButton.querySelector('.action-btn-chevron');
-                    if (chevron) chevron.innerHTML = `<path d="m9 18 6-6-6-6"/>`; // >
-                }
-
-                if (infoModal && infoModal.style.display === 'block') {
-                    toggleInfoModal(false); // Sử dụng hàm có sẵn để đóng bảng thống kê
-                }
-            }
-        };
+        const toggleCollapse = (e) => { mainContainer.classList.toggle('collapsed'); };
         if (collapseToggle && mainContainer) { collapseToggle.addEventListener('click', toggleCollapse); }
-        if (mainContainer) {
-            mainContainer.addEventListener('wheel', (event) => {
-                // Ngăn chặn cuộn trang chính khi lăn chuột trên công cụ
-                // Chỉ cho phép cuộn nếu phần tử bên dưới con trỏ có thanh cuộn
-                const target = event.target;
-                if (target.scrollHeight <= target.clientHeight && target.scrollWidth <= target.clientWidth) {
-                    event.preventDefault();
-                }
-            });
-        }
         if (headerContent && mainContainer) { headerContent.addEventListener('click', toggleCollapse); }
 
         const btnSubmitKey = document.getElementById('btn-submit-key');
@@ -2139,14 +2086,6 @@
         const infoModal = document.getElementById('modal-information');
         const openDashboardButton = document.getElementById('auto-celeb-open-dashboard-btn');
         const infoButton = document.getElementById('auto-celeb-info-btn');
-
-        // Ngăn chặn cuộn trang khi lăn chuột bên trong các modal
-        if (dashboardModal) {
-            dashboardModal.addEventListener('wheel', e => e.stopPropagation());
-        }
-        if (infoModal) {
-            infoModal.addEventListener('wheel', e => e.stopPropagation());
-        }
 
         if (openDashboardButton && dashboardModal) {
             openDashboardButton.addEventListener('click', () => {
