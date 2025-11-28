@@ -492,7 +492,7 @@ const LocketCelebrityPage: React.FC = () => {
                 <div className="relative pl-8 md:pl-12">
                    <span className="absolute -left-[9px] top-1 h-5 w-5 rounded-full border-4 border-white dark:border-slate-950 bg-slate-300 dark:bg-slate-700"></span>
                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
-                      <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">vv1.3</h3>
+                      <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">v1.2 Fix</h3>
                       <time className="text-sm font-medium text-slate-400">01/11/2025</time>
                    </div>
                    <div className="p-4 rounded-xl bg-white/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
@@ -513,7 +513,7 @@ const LocketCelebrityPage: React.FC = () => {
                 <div className="relative pl-8 md:pl-12">
                    <span className="absolute -left-[9px] top-1 h-5 w-5 rounded-full border-4 border-white dark:border-slate-950 bg-slate-300 dark:bg-slate-700"></span>
                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
-                      <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">v1.3</h3>
+                      <h3 className="text-lg font-bold text-slate-700 dark:text-slate-200">v1.2</h3>
                       <time className="text-sm font-medium text-slate-400">31/10/2025</time>
                    </div>
                    <div className="p-4 rounded-xl bg-white/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
