@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Locket Celebrity</title>
 
     <!-- Open Graph Meta Tags for Social Media Preview -->
-    <meta property="og:title" content="Auto Locket Celeb (v1.2 Fix)" />
+    <meta property="og:title" content="Auto Locket Celeb (v1.3)" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://locket-celebrity.vercel.app/" />
     <meta property="og:image" content="https://i.imgur.com/AM2f24N.png" />
@@ -14,19 +14,53 @@
     <meta property="og:site_name" content="Locket Celebrity Script" />
 
     <link rel="icon" type="image/png" href="https://i.imgur.com/AM2f24N.png" />
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
             colors: {
-              'red-violet': {
-                50: '#fdecf4',
-                100: '#f6b2d6',
-                200: '#ee68b8',
-                300: '#ba2087',
-                400: '#650646',
-                500: '#1e0012',
+              primary: {
+                50: '#fdf2f8',
+                100: '#fce7f3',
+                200: '#fbcfe8',
+                300: '#f9a8d4',
+                400: '#f472b6',
+                500: '#ec4899', // Pink-500
+                600: '#db2777',
+                700: '#be185d',
+                800: '#9d174d',
+                900: '#831843',
+              },
+              secondary: {
+                 500: '#8b5cf6', // Violet-500
+                 600: '#7c3aed',
+              }
+            },
+            animation: {
+              'blob': 'blob 7s infinite',
+              'fade-in': 'fadeIn 0.5s ease-out',
+            },
+            keyframes: {
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
               }
             }
           }
@@ -34,26 +68,63 @@
       }
     </script>
     <style>
-      /* Simple transition for theme changes */
-      body, .bg-transition {
-        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+      body {
+        font-family: 'Inter', sans-serif;
       }
-      
+
       /* Sparkling text effect */
       @keyframes sparkle {
         0%, 100% {
-          color: #ba2087;
-          text-shadow: 0 0 1px #fff, 0 0 3px #f6b2d6, 0 0 5px #f6b2d6;
+          color: #ec4899; /* pink-500 */
+          text-shadow: 0 0 2px #fff, 0 0 5px #fbcfe8;
         }
         50% {
-          color: #ee68b8;
-          text-shadow: 0 0 3px #fff, 0 0 6px #fdecf4, 0 0 10px #fdecf4;
+          color: #8b5cf6; /* violet-500 */
+          text-shadow: 0 0 5px #fff, 0 0 10px #ddd6fe;
+        }
+      }
+
+      /* Dark mode specific sparkle - brighter colors */
+      @keyframes sparkle-dark {
+        0%, 100% {
+          color: #f9a8d4; /* pink-300 */
+          text-shadow: 0 0 5px #be185d, 0 0 10px #fce7f3;
+        }
+        50% {
+          color: #a78bfa; /* violet-400 */
+          text-shadow: 0 0 5px #7c3aed, 0 0 10px #e9d5ff;
         }
       }
 
       .sparkle-text {
-        font-weight: bold;
+        font-weight: 800;
         animation: sparkle 2.5s ease-in-out infinite;
+        font-size: 1.1em;
+      }
+
+      .dark .sparkle-text {
+        animation: sparkle-dark 2.5s ease-in-out infinite;
+      }
+      
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8; 
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+      }
+      .dark ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
       }
     </style>
   <script type="importmap">
@@ -66,7 +137,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
