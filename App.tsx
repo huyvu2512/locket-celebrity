@@ -482,7 +482,7 @@ const LocketCelebrityPage: React.FC = () => {
                         </li>
                          <li className="flex items-start gap-2">
                             <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-pink-500 flex-shrink-0"></span>
-                            Thêm các chức năng: tùy chỉnh Celeb, biểu đồ hoạt động, thống kê tài khoản.
+                            Thêm các chức năng: "Tùy chỉnh Celeb", "Biểu đồ hoạt động", "Thống kê tài khoản".
                         </li>
                       </ul>
                    </div>
