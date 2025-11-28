@@ -488,7 +488,7 @@ const LocketCelebrityPage: React.FC = () => {
                    </div>
                 </div>
 
-                {/* v1.3 */}
+                {/* v1.2 Fix */}
                 <div className="relative pl-8 md:pl-12">
                    <span className="absolute -left-[9px] top-1 h-5 w-5 rounded-full border-4 border-white dark:border-slate-950 bg-slate-300 dark:bg-slate-700"></span>
                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
@@ -509,7 +509,7 @@ const LocketCelebrityPage: React.FC = () => {
                    </div>
                 </div>
 
-                 {/* v1.3 */}
+                 {/* v1.2 */}
                 <div className="relative pl-8 md:pl-12">
                    <span className="absolute -left-[9px] top-1 h-5 w-5 rounded-full border-4 border-white dark:border-slate-950 bg-slate-300 dark:bg-slate-700"></span>
                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
